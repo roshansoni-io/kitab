@@ -76,9 +76,9 @@ class ZoomState(
 
     companion object {
         const val MIN_SCALE = 1f
-        const val MAX_SCALE = 4f
+        const val MAX_SCALE = 5f
         const val MAX_SCALE_ERROR = 0.01f
-        const val SNAP_BACK_THRESHOLD = 1.15f
+        const val SNAP_BACK_THRESHOLD = 1.05f
     }
 }
 

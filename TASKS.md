@@ -87,6 +87,31 @@
 
 ---
 
+## Milestone 3 — Zoom Geometry, Links & Selection (in progress)
+
+### 1. Zoom geometry + depth (user-verified scenarios)
+- [x] Zoom jumps after hi-res swap — `ZoomState` now measures zoom against the
+  *displayed letterboxed* size, not bitmap pixels: new `PageGeometry.fittedSize()` (matches
+  `Image` + `ContentScale.Fit` exactly), so scale/offset clamps stay identical when the
+  hi-res bitmap replaces the base one
+- [x] Tiny accidental zooms snap back too hard — `SNAP_BACK_THRESHOLD` 1.15 → 1.05
+- [x] Deeper zoom allowed — `MAX_SCALE` 4 → 5, hi-res re-render cap 2400 px → 3000 px
+
+### 2. Build & Verify
+- [x] `:app:compileDebugKotlin` + `:app:ktlintCheck` green
+- [ ] Manual device test
+- [x] Commit
+
+### 3. Links (pending)
+- [ ] Data layer: cached `LinkTarget(rect, uri?, targetPage?)` per page (`getLinks`/`resolveLink`)
+- [ ] Tap hit-test → internal page jump; external `ACTION_VIEW` behind M3 confirm chip
+
+### 4. Selection & copy (pending)
+- [ ] Long-press word snap (`snapSelection`), drag extend, quad overlay in same `graphicsLayer`,
+      Copy/Close floating toolbar, clipboard
+
+---
+
 ## Backlog — Future Milestones (not started)
 
 - [ ] EPUB / reflowable formats via Stories API

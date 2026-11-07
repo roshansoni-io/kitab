@@ -243,7 +243,14 @@ private fun ReaderPage(
                 viewportSize = viewportSize,
                 contentSize = {
                     val bitmap = pageBitmap
-                    if (bitmap == null) IntSize.Zero else IntSize(bitmap.width, bitmap.height)
+                    if (bitmap == null || pageWidthPx <= 0) {
+                        IntSize.Zero
+                    } else {
+                        PageGeometry.fittedSize(
+                            bitmap = bitmap,
+                            viewport = viewportSize(),
+                        )
+                    }
                 },
             )
         }
@@ -442,4 +449,4 @@ private object ScreenPadding {
 
 private const val DOUBLE_TAP_ZOOM_FACTOR = 2.5f
 private const val ZOOM_SHARPEN_THRESHOLD = 1.15f
-private const val ZOOM_RENDER_MAX_WIDTH_PX = 2400
+private const val ZOOM_RENDER_MAX_WIDTH_PX = 3000
