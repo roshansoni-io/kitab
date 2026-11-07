@@ -97,16 +97,30 @@
 - [x] Tiny accidental zooms snap back too hard — `SNAP_BACK_THRESHOLD` 1.15 → 1.05
 - [x] Deeper zoom allowed — `MAX_SCALE` 4 → 5, hi-res re-render cap 2400 px → 3000 px
 
-### 2. Build & Verify
-- [x] `:app:compileDebugKotlin` + `:app:ktlintCheck` green
+### 2. Sharp visible-region rendering (screen pixel density)
+- [x] Only the visible part of a zoomed page is re-rendered, at ~1 bitmap pixel per screen pixel:
+  `PageGeometry.visiblePageRegion()` maps the viewport through the zoom/pan transform into PDF
+  points, `MuPdfDocument.renderRegion()` renders just that crop with a translated matrix
+- [x] Result is drawn as an overlay inside the same zoom transform, so un-rendered parts stay
+  visible (soft) and the sharp part stays perfectly aligned; no full-page hi-res bitmap anymore
+- [x] Re-rendered on every gesture end (pinch, pan while zoomed, double-tap zoom), including after
+  panning to a different area; skipped when the region/zoom is effectively unchanged
+- [x] Overlay cleared when zooming back out below the snap-back threshold
+- [x] Only the current page is rendered (`beyondViewportPageCount = 0`); neighbors load on swipe
+
+### 3. Links
+- [x] Data layer: cached `LinkTarget(rect, uri?, targetPage?)` per page (`getLinks` + `resolveLink`),
+  extracted on the single MuPDF worker thread (`ReaderBook.linkTargets`)
+- [x] Tap hit-test with touch-slop expansion (`PageMapper`), zoom-aware via `ZoomState.fromScreen`
+- [x] Internal links jump the pager; external links show a "Open <host>?" confirm chip; opening uses
+  `ACTION_VIEW` with a toast fallback when no app handles the URI
+
+### 4. Build & Verify
+- [x] `:app:compileDebugKotlin` + `:app:ktlintCheck` + `:app:assembleDebug` green
 - [ ] Manual device test
 - [x] Commit
 
-### 3. Links (pending)
-- [ ] Data layer: cached `LinkTarget(rect, uri?, targetPage?)` per page (`getLinks`/`resolveLink`)
-- [ ] Tap hit-test → internal page jump; external `ACTION_VIEW` behind M3 confirm chip
-
-### 4. Selection & copy (pending)
+### 5. Selection & copy (pending)
 - [ ] Long-press word snap (`snapSelection`), drag extend, quad overlay in same `graphicsLayer`,
       Copy/Close floating toolbar, clipboard
 

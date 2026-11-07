@@ -64,6 +64,18 @@ class ZoomState(
 
     private fun viewportCenter(): Offset = viewportSize().let { Offset(it.width / 2f, it.height / 2f) }
 
+    /**
+     * Maps a point in layout (screen) coordinates to un-zoomed content coordinates,
+     * inverting the scale/pan transform of the current zoom state. Used for
+     * hit-testing content (links, selection) while the page is zoomed.
+     */
+    fun fromScreen(point: Offset): Offset {
+        val center = viewportCenter()
+        if (viewportSize() == IntSize.Zero) return point
+        val panned = point - center - Offset(offsetX, offsetY)
+        return center + Offset(panned.x / scale, panned.y / scale)
+    }
+
     private fun clampOffsets() {
         val viewport = viewportSize()
         val content = contentSize()
@@ -84,7 +96,7 @@ class ZoomState(
 
 fun Modifier.zoomable(
     state: ZoomState,
-    onTap: () -> Unit = {},
+    onTap: (Offset) -> Unit = {},
     onDoubleTap: (Offset) -> Unit = {},
     onGestureEnd: () -> Unit = {},
 ): Modifier =
@@ -165,14 +177,14 @@ private fun pressedSpan(pressed: List<PointerInputChange>): Float {
 
 private suspend fun AwaitPointerEventScope.maybeDetectDoubleTap(
     firstTapPoint: Offset,
-    onTap: () -> Unit,
+    onTap: (Offset) -> Unit,
     onDoubleTap: (Offset) -> Unit,
 ) {
     val secondDown =
         withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
             awaitFirstDown(requireUnconsumed = false)
         } ?: run {
-            onTap()
+            onTap(firstTapPoint)
             return
         }
 
@@ -199,7 +211,7 @@ private suspend fun AwaitPointerEventScope.maybeDetectDoubleTap(
     if (isDoubleTap) {
         onDoubleTap(secondTap)
     } else {
-        onTap()
+        onTap(firstTapPoint)
     }
 }
 

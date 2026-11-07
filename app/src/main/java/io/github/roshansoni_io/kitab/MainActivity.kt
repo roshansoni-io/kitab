@@ -54,6 +54,24 @@ private sealed interface KitabScreen {
     ) : KitabScreen
 }
 
+private fun openExternalLink(
+    context: android.content.Context,
+    uri: String,
+) {
+    try {
+        val intent =
+            Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse(uri)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        context.startActivity(intent)
+    } catch (notFound: android.content.ActivityNotFoundException) {
+        android.widget.Toast
+            .makeText(context, "No app can open this link.", android.widget.Toast.LENGTH_SHORT)
+            .show()
+    }
+}
+
 @Composable
 private fun KitabRoot(
     pendingExternalUri: Uri?,
@@ -95,6 +113,7 @@ private fun KitabRoot(
             ReaderScreen(
                 book = currentScreen.book,
                 onBack = { screen = KitabScreen.Home },
+                onOpenExternalLink = { uri -> openExternalLink(context, uri) },
             )
         }
     }

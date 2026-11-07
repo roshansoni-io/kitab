@@ -10,6 +10,7 @@ import com.artifex.mupdf.fitz.Page
 import com.artifex.mupdf.fitz.RectI
 import com.artifex.mupdf.fitz.android.AndroidDrawDevice
 import java.io.File
+import kotlin.math.ceil
 
 sealed class DocumentOpenException(
     message: String,
@@ -76,6 +77,79 @@ class MuPdfDocument internal constructor(
                 page.destroy()
             }
         }
+
+    fun linkTargets(pageIndex: Int): List<LinkTarget> =
+        synchronized(lock) {
+            checkOpen()
+            val page = loadPage(pageIndex)
+            try {
+                page.getLinks().map { link ->
+                    val bounds = link.getBounds()
+                    val rect = RectF(bounds.x0, bounds.y0, bounds.x1, bounds.y1)
+                    if (link.isExternal()) {
+                        LinkTarget(rect = rect, targetPage = null, uri = link.getURI())
+                    } else {
+                        val destination = document.resolveLink(link)
+                        LinkTarget(rect = rect, targetPage = destination.page, uri = null)
+                    }
+                }
+            } finally {
+                page.destroy()
+            }
+        }
+
+    /**
+     * Renders only [pageRect] (PDF page points) at [zoom] points-to-pixels scale.
+     * Used to sharpen just the visible part of a zoomed page.
+     */
+    fun renderRegion(
+        pageIndex: Int,
+        pageRect: RectF,
+        zoom: Float,
+        backgroundColor: Int,
+    ): Bitmap =
+        synchronized(lock) {
+            checkOpen()
+            require(zoom > 0f) { "zoom must be positive but was $zoom" }
+            require(pageRect.width() > 0f && pageRect.height() > 0f) {
+                "region must be non-empty but was $pageRect"
+            }
+            val page = loadPage(pageIndex)
+            try {
+                buildRegionBitmap(page, pageRect, zoom, backgroundColor)
+            } finally {
+                page.destroy()
+            }
+        }
+
+    private fun buildRegionBitmap(
+        page: Page,
+        pageRect: RectF,
+        zoom: Float,
+        backgroundColor: Int,
+    ): Bitmap {
+        val width = ceil(pageRect.width() * zoom).toInt().coerceAtLeast(1)
+        val height = ceil(pageRect.height() * zoom).toInt().coerceAtLeast(1)
+        val displayList: DisplayList = page.toDisplayList()
+        try {
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(backgroundColor)
+
+            val device = AndroidDrawDevice(bitmap, 0, 0)
+            val cookie = Cookie()
+            try {
+                val ctm = Matrix(zoom, zoom).translate(-pageRect.left, -pageRect.top)
+                displayList.run(device, ctm, cookie)
+                device.close()
+            } finally {
+                cookie.destroy()
+                device.destroy()
+            }
+            return bitmap
+        } finally {
+            displayList.destroy()
+        }
+    }
 
     private fun buildPageBitmap(
         page: Page,

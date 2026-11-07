@@ -1,6 +1,7 @@
 package io.github.roshansoni_io.kitab.reader
 
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.util.LruCache
 import androidx.core.os.trace
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,6 +15,7 @@ class ReaderBook private constructor(
     val pageCount: Int get() = document.pageCount
 
     private val pageCache = PageBitmapCache(maxBytes = DEFAULT_CACHE_BYTES)
+    private val linkTargetCache = mutableMapOf<Int, List<LinkTarget>>()
     private val renderDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     suspend fun renderPage(
@@ -33,6 +35,26 @@ class ReaderBook private constructor(
             }
         }
     }
+
+    suspend fun pageSize(pageIndex: Int): RectF =
+        withContext(renderDispatcher) {
+            document.pageSize(pageIndex)
+        }
+
+    suspend fun renderRegion(
+        pageIndex: Int,
+        pageRect: RectF,
+        zoom: Float,
+        backgroundColor: Int,
+    ): Bitmap =
+        withContext(renderDispatcher) {
+            document.renderRegion(pageIndex, pageRect, zoom, backgroundColor)
+        }
+
+    suspend fun linkTargets(pageIndex: Int): List<LinkTarget> =
+        withContext(renderDispatcher) {
+            linkTargetCache.getOrPut(pageIndex) { document.linkTargets(pageIndex) }
+        }
 
     override fun close() {
         document.close()

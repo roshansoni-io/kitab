@@ -1,6 +1,8 @@
 package io.github.roshansoni_io.kitab.reader.ui
 
 import android.graphics.Bitmap
+import android.graphics.RectF
+import android.view.ViewConfiguration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +13,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -40,16 +44,20 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.book.Book
 import io.github.roshansoni_io.kitab.reader.DocumentOpenException
+import io.github.roshansoni_io.kitab.reader.LinkTarget
 import io.github.roshansoni_io.kitab.reader.ReaderBook
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +72,7 @@ import kotlin.math.roundToInt
 fun ReaderScreen(
     book: Book,
     onBack: () -> Unit,
+    onOpenExternalLink: (String) -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val openedBookState = remember(book.cachedPath) { mutableStateOf<Result<ReaderBook>?>(null) }
@@ -97,6 +106,7 @@ fun ReaderScreen(
                         readerBook = readerBook,
                         bookTitle = book.title,
                         onBack = onBack,
+                        onOpenExternalLink = onOpenExternalLink,
                     )
                 },
                 onFailure = { failure ->
@@ -174,10 +184,13 @@ private fun ReaderContent(
     readerBook: ReaderBook,
     bookTitle: String,
     onBack: () -> Unit,
+    onOpenExternalLink: (String) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { readerBook.pageCount })
     val zoomedPages = remember { mutableStateMapOf<Int, Boolean>() }
     val viewportSize = remember { mutableStateOf(IntSize.Zero) }
+    val scope = rememberCoroutineScope()
+    var pendingLinkUri by remember { mutableStateOf<String?>(null) }
 
     ReaderScaffold(
         bookTitle = bookTitle,
@@ -207,7 +220,7 @@ private fun ReaderContent(
                 modifier = Modifier.fillMaxSize(),
                 key = { pageIndex -> pageIndex },
                 userScrollEnabled = zoomedPages.isEmpty(),
-                beyondViewportPageCount = 1,
+                beyondViewportPageCount = 0,
             ) { pageIndex ->
                 ReaderPage(
                     readerBook = readerBook,
@@ -217,6 +230,37 @@ private fun ReaderContent(
                     onZoomChanged = { isZoomed ->
                         if (isZoomed) zoomedPages[pageIndex] = true else zoomedPages.remove(pageIndex)
                     },
+                    onLinkTapped = { target ->
+                        pendingLinkUri = null
+                        val targetPage = target.targetPage
+                        when {
+                            targetPage != null -> {
+                                scope.launch {
+                                    pagerState.scrollToPage(
+                                        targetPage.coerceIn(0, readerBook.pageCount - 1),
+                                    )
+                                }
+                            }
+
+                            target.uri != null -> {
+                                pendingLinkUri = target.uri
+                            }
+                        }
+                    },
+                )
+            }
+            pendingLinkUri?.let { uri ->
+                LinkConfirmChip(
+                    uri = uri,
+                    onOpen = { link ->
+                        onOpenExternalLink(link)
+                        pendingLinkUri = null
+                    },
+                    onClose = { pendingLinkUri = null },
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 16.dp),
                 )
             }
         }
@@ -230,12 +274,29 @@ private fun ReaderPage(
     viewportSize: () -> IntSize,
     backgroundColor: Color,
     onZoomChanged: (Boolean) -> Unit,
+    onLinkTapped: (LinkTarget) -> Unit,
 ) {
     val pageWidthPx = viewportSize().width
     var pageBitmap by remember(pageIndex, pageWidthPx) { mutableStateOf<Bitmap?>(null) }
     var renderFailed by remember(pageIndex, pageWidthPx) { mutableStateOf(false) }
-    var renderedWidthPixels by remember(pageIndex, pageWidthPx) { mutableIntStateOf(0) }
     var zoomSettleTick by remember(pageIndex, pageWidthPx) { mutableIntStateOf(0) }
+    var sharpRegion by remember(pageIndex, pageWidthPx) { mutableStateOf<SharpRegion?>(null) }
+    var lastRegionSpec by remember(pageIndex, pageWidthPx) { mutableStateOf<RegionRenderSpec?>(null) }
+    var pageSize by remember(pageIndex) { mutableStateOf<RectF?>(null) }
+    var linkTargets by remember(pageIndex) { mutableStateOf<List<LinkTarget>>(emptyList()) }
+    val context = LocalContext.current
+    val touchSlopPx = remember(context) { ViewConfiguration.get(context).scaledTouchSlop.toFloat() }
+
+    LaunchedEffect(pageIndex) {
+        try {
+            pageSize = readerBook.pageSize(pageIndex)
+            linkTargets = readerBook.linkTargets(pageIndex)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (loadFailure: Exception) {
+            Unit
+        }
+    }
 
     val zoomState =
         remember(pageIndex) {
@@ -264,7 +325,6 @@ private fun ReaderPage(
                         targetWidthPx = pageWidthPx,
                         backgroundColor = backgroundColor.toArgb(),
                     )
-                renderedWidthPixels = pageWidthPx
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (renderFailure: Exception) {
@@ -274,27 +334,51 @@ private fun ReaderPage(
     }
 
     LaunchedEffect(zoomSettleTick) {
-        val bitmap = pageBitmap
-        if (zoomSettleTick > 0 && bitmap != null && zoomState.scale > ZOOM_SHARPEN_THRESHOLD) {
-            val targetWidth =
-                (pageWidthPx * zoomState.scale)
-                    .roundToInt()
-                    .coerceAtMost(ZOOM_RENDER_MAX_WIDTH_PX)
-            if (targetWidth > renderedWidthPixels) {
-                try {
-                    pageBitmap =
-                        readerBook.renderPage(
-                            pageIndex = pageIndex,
-                            targetWidthPx = targetWidth,
-                            backgroundColor = backgroundColor.toArgb(),
-                        )
-                    renderedWidthPixels = targetWidth
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (renderFailure: Exception) {
-                    Unit
-                }
-            }
+        if (zoomSettleTick == 0) return@LaunchedEffect
+        val points = pageSize ?: return@LaunchedEffect
+        val bitmap = pageBitmap ?: return@LaunchedEffect
+        if (zoomState.scale <= ZoomState.SNAP_BACK_THRESHOLD) {
+            sharpRegion = null
+            lastRegionSpec = null
+            return@LaunchedEffect
+        }
+        val viewport = viewportSize()
+        val spec =
+            PageGeometry.visiblePageRegion(
+                pageSizePoints = points,
+                viewport = viewport,
+                zoomScale = zoomState.scale,
+                panX = zoomState.offsetX,
+                panY = zoomState.offsetY,
+            ) ?: return@LaunchedEffect
+        if (spec.matches(lastRegionSpec)) return@LaunchedEffect
+        try {
+            val regionBitmap =
+                readerBook.renderRegion(
+                    pageIndex = pageIndex,
+                    pageRect = spec.pageRect,
+                    zoom = spec.zoom,
+                    backgroundColor = backgroundColor.toArgb(),
+                )
+            val fitted = PageGeometry.fittedSize(bitmap, viewport)
+            val contentScale = fitted.width / points.width()
+            val letterboxX = (viewport.width - fitted.width) / 2f
+            val letterboxY = (viewport.height - fitted.height) / 2f
+            val left = letterboxX + (spec.pageRect.left - points.left) * contentScale
+            val top = letterboxY + (spec.pageRect.top - points.top) * contentScale
+            sharpRegion =
+                SharpRegion(
+                    bitmap = regionBitmap,
+                    left = left,
+                    top = top,
+                    width = spec.pageRect.width() * contentScale,
+                    height = spec.pageRect.height() * contentScale,
+                )
+            lastRegionSpec = spec
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (renderFailure: Exception) {
+            Unit
         }
     }
 
@@ -320,7 +404,19 @@ private fun ReaderPage(
             ZoomedPageImage(
                 bitmap = bitmap,
                 zoomState = zoomState,
+                sharpRegion = sharpRegion,
                 onGestureEnd = { zoomSettleTick++ },
+                onTap = { tapPoint ->
+                    val points = pageSize
+                    if (points != null) {
+                        val mapper = PageMapper(points, viewportSize())
+                        if (mapper.isUsable) {
+                            val pagePoint = mapper.toPagePoint(zoomState.fromScreen(tapPoint))
+                            val hit = mapper.hitTest(linkTargets, pagePoint, touchSlopPx)
+                            hit?.let(onLinkTapped)
+                        }
+                    }
+                },
             )
         }
     }
@@ -330,8 +426,11 @@ private fun ReaderPage(
 private fun ZoomedPageImage(
     bitmap: Bitmap,
     zoomState: ZoomState,
+    sharpRegion: SharpRegion?,
     onGestureEnd: () -> Unit,
+    onTap: (Offset) -> Unit,
 ) {
+    val density = LocalDensity.current
     Box(
         modifier =
             Modifier
@@ -339,21 +438,20 @@ private fun ZoomedPageImage(
                 .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = "PDF page",
-            contentScale = ContentScale.Fit,
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .zoomable(
                         state = zoomState,
+                        onTap = onTap,
                         onDoubleTap = { tapPoint ->
                             if (zoomState.isZoomed) {
                                 zoomState.reset()
                             } else {
                                 zoomState.zoomBy(DOUBLE_TAP_ZOOM_FACTOR, tapPoint)
                             }
+                            onGestureEnd()
                         },
                         onGestureEnd = onGestureEnd,
                     ).graphicsLayer {
@@ -362,9 +460,44 @@ private fun ZoomedPageImage(
                         translationX = zoomState.offsetX
                         translationY = zoomState.offsetY
                     },
-        )
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "PDF page",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (sharpRegion != null) {
+                Image(
+                    bitmap = sharpRegion.bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier =
+                        Modifier
+                            .offset {
+                                with(density) {
+                                    IntOffset(
+                                        sharpRegion.left.roundToInt(),
+                                        sharpRegion.top.roundToInt(),
+                                    )
+                                }
+                            }.size(
+                                width = with(density) { sharpRegion.width.toDp() },
+                                height = with(density) { sharpRegion.height.toDp() },
+                            ),
+                )
+            }
+        }
     }
 }
+
+private data class SharpRegion(
+    val bitmap: Bitmap,
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float,
+)
 
 @Composable
 private fun ReaderPageLoading() {
@@ -448,5 +581,3 @@ private object ScreenPadding {
 }
 
 private const val DOUBLE_TAP_ZOOM_FACTOR = 2.5f
-private const val ZOOM_SHARPEN_THRESHOLD = 1.15f
-private const val ZOOM_RENDER_MAX_WIDTH_PX = 3000
