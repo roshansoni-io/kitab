@@ -16,6 +16,18 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("$rootDir/third_party/maven")
+            content {
+                includeGroup("com.artifex.mupdf")
+            }
+        }
+        maven {
+            url = uri("https://maven.ghostscript.com")
+            content {
+                includeGroup("com.artifex.mupdf")
+            }
+        }
     }
 }
 

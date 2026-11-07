@@ -1,72 +1,111 @@
 package io.github.roshansoni_io.kitab
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import io.github.roshansoni_io.kitab.book.Book
+import io.github.roshansoni_io.kitab.book.BookRepository
+import io.github.roshansoni_io.kitab.home.HomeScreen
+import io.github.roshansoni_io.kitab.reader.ui.ReaderScreen
 import io.github.roshansoni_io.kitab.ui.theme.KitabTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+    private val pendingExternalBookUri = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pendingExternalBookUri.value = externalBookUri(intent)
         setContent {
             KitabTheme {
-                KitabApp()
+                KitabRoot(
+                    pendingExternalUri = pendingExternalBookUri.value,
+                    onExternalUriHandled = { pendingExternalBookUri.value = null },
+                )
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingExternalBookUri.value = externalBookUri(intent)
+    }
+
+    private fun externalBookUri(intent: Intent): Uri? =
+        intent.takeIf { it.action == Intent.ACTION_VIEW }?.data
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private sealed interface KitabScreen {
+    data object Home : KitabScreen
+    data class Reading(val book: Book) : KitabScreen
+}
+
 @Composable
-fun KitabApp() {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Kitab") },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = "Welcome to Kitab",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Button(
-                onClick = {},
-            ) {
-                Text("Get Started")
+private fun KitabRoot(
+    pendingExternalUri: Uri?,
+    onExternalUriHandled: () -> Unit,
+) {
+    val context = LocalContext.current
+    val repository = remember { BookRepository(context) }
+    val scope = rememberCoroutineScope()
+    var screen by remember { mutableStateOf<KitabScreen>(KitabScreen.Home) }
+    var isImportFailedDialogVisible by remember { mutableStateOf(false) }
+
+    fun openBook(uri: Uri) {
+        scope.launch {
+            val book = repository.importBook(uri)
+            if (book != null) {
+                screen = KitabScreen.Reading(book)
+            } else {
+                isImportFailedDialogVisible = true
             }
         }
     }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun KitabAppPreview() {
-    KitabTheme {
-        KitabApp()
+    LaunchedEffect(pendingExternalUri) {
+        pendingExternalUri?.let { uri ->
+            openBook(uri)
+            onExternalUriHandled()
+        }
+    }
+
+    when (val currentScreen = screen) {
+        KitabScreen.Home -> HomeScreen(
+            repository = repository,
+            onOpenBook = { book -> screen = KitabScreen.Reading(book) },
+        )
+
+        is KitabScreen.Reading -> ReaderScreen(
+            book = currentScreen.book,
+            onBack = { screen = KitabScreen.Home },
+        )
+    }
+
+    if (isImportFailedDialogVisible) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { isImportFailedDialogVisible = false },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { isImportFailedDialogVisible = false },
+                ) {
+                    androidx.compose.material3.Text(text = "OK")
+                }
+            },
+            title = { androidx.compose.material3.Text(text = "Something went wrong") },
+            text = { androidx.compose.material3.Text(text = "This book could not be opened.") },
+        )
     }
 }
