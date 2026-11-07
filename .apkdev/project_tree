@@ -1,0 +1,8 @@
+#!/bin/bash
+
+  #configuration for apk-devtool
+  _java=app/src/main/java
+  _res=app/src/main/res
+  _assets=app/src/main/assets
+  _base=app/src/main
+  
