@@ -1,0 +1,4 @@
+[*.{kt,kts}]
+# Package keeps the underscore from io.github.roshansoni_io; Composable functions are PascalCase by convention.
+ktlint_standard_package-name = disabled
+ktlint_standard_function-naming = disabled

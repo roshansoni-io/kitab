@@ -17,6 +17,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
+        }
+
         release {
             isMinifyEnabled = false
         }
@@ -24,6 +30,12 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        // Dependency versions are intentionally pinned: newer AGP/BOM/activity releases
+        // require compileSdk 37 / minSdk 23, which the SDK setup used here does not provide.
+        disable += listOf("AndroidGradlePluginVersion", "GradleDependency")
     }
 
     compileOptions {
@@ -38,7 +50,36 @@ kotlin {
     }
 }
 
+val sources = listOf("src/main/**/*.kt")
+
+val ktlintCheck by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Runs ktlint and reports style violations."
+    classpath = ktlint
+    mainClass = "com.pinterest.ktlint.Main"
+    args(sources)
+}
+
+val ktlintFormat by tasks.registering(JavaExec::class) {
+    group = "formatting"
+    description = "Fixes ktlint style violations in place."
+    classpath = ktlint
+    mainClass = "com.pinterest.ktlint.Main"
+    args(listOf("-F") + sources)
+}
+
+tasks.named("check") {
+    dependsOn(ktlintCheck)
+}
+
+val ktlint by configurations.creating {
+    isCanBeConsumed = false
+    isVisible = false
+}
+
 dependencies {
+    ktlint(libs.ktlint.cli)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

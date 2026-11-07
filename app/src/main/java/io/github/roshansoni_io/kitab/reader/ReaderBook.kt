@@ -11,7 +11,6 @@ import java.io.File
 class ReaderBook private constructor(
     val document: MuPdfDocument,
 ) : AutoCloseable {
-
     val pageCount: Int get() = document.pageCount
 
     private val pageCache = PageBitmapCache(maxBytes = DEFAULT_CACHE_BYTES)
@@ -23,12 +22,14 @@ class ReaderBook private constructor(
         backgroundColor: Int,
     ): Bitmap {
         require(pageIndex in 0 until pageCount) { "Invalid page index $pageIndex" }
-        pageCache.get(pageIndex)?.let { return it }
+        val cacheKey = PageCacheKey(pageIndex, targetWidthPx)
+        pageCache.get(cacheKey)?.let { return it }
         return withContext(renderDispatcher) {
-            pageCache.get(pageIndex)?.let { return@withContext it }
+            pageCache.get(cacheKey)?.let { return@withContext it }
             trace("Kitab.pageRender") {
-                document.renderPage(pageIndex, targetWidthPx, backgroundColor)
-                    .also { pageCache.put(pageIndex, it) }
+                document
+                    .renderPage(pageIndex, targetWidthPx, backgroundColor)
+                    .also { pageCache.put(cacheKey, it) }
             }
         }
     }
@@ -39,7 +40,7 @@ class ReaderBook private constructor(
     }
 
     companion object {
-        private const val DEFAULT_CACHE_BYTES = 64L * 1024 * 1024
+        private const val DEFAULT_CACHE_BYTES = 96L * 1024 * 1024
 
         fun open(file: File): ReaderBook {
             val document = MuPdfDocument.open(file)
@@ -59,16 +60,29 @@ class ReaderBook private constructor(
     }
 }
 
-private class PageBitmapCache(maxBytes: Long) {
+private data class PageCacheKey(
+    val pageIndex: Int,
+    val targetWidthPx: Int,
+)
 
-    private val delegate = object : LruCache<Int, Bitmap>(cacheCapacity(maxBytes)) {
-        override fun sizeOf(key: Int, value: Bitmap): Int = value.byteCount.coerceAtLeast(1)
-    }
+private class PageBitmapCache(
+    maxBytes: Long,
+) {
+    private val delegate =
+        object : LruCache<PageCacheKey, Bitmap>(cacheCapacity(maxBytes)) {
+            override fun sizeOf(
+                key: PageCacheKey,
+                value: Bitmap,
+            ): Int = value.byteCount.coerceAtLeast(1)
+        }
 
-    fun get(pageIndex: Int): Bitmap? = delegate.get(pageIndex)
+    fun get(key: PageCacheKey): Bitmap? = delegate.get(key)
 
-    fun put(pageIndex: Int, bitmap: Bitmap) {
-        delegate.put(pageIndex, bitmap)
+    fun put(
+        key: PageCacheKey,
+        bitmap: Bitmap,
+    ) {
+        delegate.put(key, bitmap)
     }
 
     fun clear() {

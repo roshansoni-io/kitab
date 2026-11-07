@@ -6,8 +6,10 @@ composeBom = "2025.10.01"
 coreKtx = "1.17.0"
 lifecycleRuntime = "2.9.4"
 mupdfFitz = "1.28.5"
+ktlintCli = "1.8.0"
 
 [libraries]
+ktlint-cli = { group = "com.pinterest.ktlint", name = "ktlint-cli", version.ref = "ktlintCli" }
 artifex-mupdf-fitz = { group = "com.artifex.mupdf", name = "fitz", version.ref = "mupdfFitz" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntime" }

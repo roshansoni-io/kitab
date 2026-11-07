@@ -30,6 +30,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,11 +69,12 @@ fun ReaderScreen(
     val openedBookState = remember(book.cachedPath) { mutableStateOf<Result<ReaderBook>?>(null) }
 
     LaunchedEffect(book.cachedPath) {
-        openedBookState.value = runCatching {
-            withContext(Dispatchers.IO) {
-                ReaderBook.open(File(book.cachedPath))
+        openedBookState.value =
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    ReaderBook.open(File(book.cachedPath))
+                }
             }
-        }
     }
 
     DisposableEffect(book.cachedPath) {
@@ -83,23 +86,28 @@ fun ReaderScreen(
 
     val openedBook = openedBookState.value
     when (openedBook) {
-        null -> ReaderLoadingScreen(book.title, onBack)
-        else -> openedBook.fold(
-            onSuccess = { readerBook ->
-                ReaderContent(
-                    readerBook = readerBook,
-                    bookTitle = book.title,
-                    onBack = onBack,
-                )
-            },
-            onFailure = { failure ->
-                ReaderErrorScreen(
-                    bookTitle = book.title,
-                    failure = failure,
-                    onBack = onBack,
-                )
-            },
-        )
+        null -> {
+            ReaderLoadingScreen(book.title, onBack)
+        }
+
+        else -> {
+            openedBook.fold(
+                onSuccess = { readerBook ->
+                    ReaderContent(
+                        readerBook = readerBook,
+                        bookTitle = book.title,
+                        onBack = onBack,
+                    )
+                },
+                onFailure = { failure ->
+                    ReaderErrorScreen(
+                        bookTitle = book.title,
+                        failure = failure,
+                        onBack = onBack,
+                    )
+                },
+            )
+        }
     }
 }
 
@@ -115,9 +123,10 @@ private fun ReaderLoadingScreen(
         bottomBar = {},
     ) { contentPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
             contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator()
@@ -138,9 +147,10 @@ private fun ReaderErrorScreen(
         bottomBar = {},
     ) { contentPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -152,10 +162,11 @@ private fun ReaderErrorScreen(
     }
 }
 
-private fun failureMessage(failure: Throwable): String = when (failure) {
-    is DocumentOpenException.PasswordRequired -> "Password-protected books are not supported yet."
-    else -> "This book could not be opened."
-}
+private fun failureMessage(failure: Throwable): String =
+    when (failure) {
+        is DocumentOpenException.PasswordRequired -> "Password-protected books are not supported yet."
+        else -> "This book could not be opened."
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,7 +176,7 @@ private fun ReaderContent(
     onBack: () -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { readerBook.pageCount })
-    var zoomedPageIndex by remember { mutableStateOf(-1) }
+    val zoomedPages = remember { mutableStateMapOf<Int, Boolean>() }
     val viewportSize = remember { mutableStateOf(IntSize.Zero) }
 
     ReaderScaffold(
@@ -176,24 +187,26 @@ private fun ReaderContent(
         },
     ) { contentPadding ->
         BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
         ) {
             val density = LocalDensity.current
             LaunchedEffect(maxWidth, maxHeight) {
-                viewportSize.value = with(density) {
-                    IntSize(
-                        maxWidth.toPx().roundToInt(),
-                        maxHeight.toPx().roundToInt(),
-                    )
-                }
+                viewportSize.value =
+                    with(density) {
+                        IntSize(
+                            maxWidth.toPx().roundToInt(),
+                            maxHeight.toPx().roundToInt(),
+                        )
+                    }
             }
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 key = { pageIndex -> pageIndex },
-                userScrollEnabled = zoomedPageIndex < 0,
+                userScrollEnabled = zoomedPages.isEmpty(),
                 beyondViewportPageCount = 1,
             ) { pageIndex ->
                 ReaderPage(
@@ -201,8 +214,8 @@ private fun ReaderContent(
                     pageIndex = pageIndex,
                     viewportSize = { viewportSize.value },
                     backgroundColor = MaterialTheme.colorScheme.background,
-                    onZoomActive = { isZoomed ->
-                        zoomedPageIndex = if (isZoomed) pageIndex else -1
+                    onZoomChanged = { isZoomed ->
+                        if (isZoomed) zoomedPages[pageIndex] = true else zoomedPages.remove(pageIndex)
                     },
                 )
             }
@@ -216,20 +229,35 @@ private fun ReaderPage(
     pageIndex: Int,
     viewportSize: () -> IntSize,
     backgroundColor: Color,
-    onZoomActive: (Boolean) -> Unit,
+    onZoomChanged: (Boolean) -> Unit,
 ) {
     val pageWidthPx = viewportSize().width
-    var renderedPage by remember(pageIndex, pageWidthPx) { mutableStateOf<Bitmap?>(null) }
+    var pageBitmap by remember(pageIndex, pageWidthPx) { mutableStateOf<Bitmap?>(null) }
     var renderFailed by remember(pageIndex, pageWidthPx) { mutableStateOf(false) }
+    var renderedWidthPixels by remember(pageIndex, pageWidthPx) { mutableIntStateOf(0) }
+    var zoomSettleTick by remember(pageIndex, pageWidthPx) { mutableIntStateOf(0) }
+
+    val zoomState =
+        remember(pageIndex) {
+            ZoomState(
+                viewportSize = viewportSize,
+                contentSize = {
+                    val bitmap = pageBitmap
+                    if (bitmap == null) IntSize.Zero else IntSize(bitmap.width, bitmap.height)
+                },
+            )
+        }
 
     LaunchedEffect(pageIndex, pageWidthPx) {
-        if (renderedPage == null && !renderFailed) {
+        if (pageWidthPx > 0 && pageBitmap == null && !renderFailed) {
             try {
-                renderedPage = readerBook.renderPage(
-                    pageIndex = pageIndex,
-                    targetWidthPx = pageWidthPx,
-                    backgroundColor = backgroundColor.toArgb(),
-                )
+                pageBitmap =
+                    readerBook.renderPage(
+                        pageIndex = pageIndex,
+                        targetWidthPx = pageWidthPx,
+                        backgroundColor = backgroundColor.toArgb(),
+                    )
+                renderedWidthPixels = pageWidthPx
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (renderFailure: Exception) {
@@ -238,62 +266,95 @@ private fun ReaderPage(
         }
     }
 
-    val bitmap = renderedPage
-    val zoomState = remember(bitmap) {
-        bitmap?.let { ZoomState(viewportSize, IntSize(it.width, it.height)) }
+    LaunchedEffect(zoomSettleTick) {
+        val bitmap = pageBitmap
+        if (zoomSettleTick > 0 && bitmap != null && zoomState.scale > ZOOM_SHARPEN_THRESHOLD) {
+            val targetWidth =
+                (pageWidthPx * zoomState.scale)
+                    .roundToInt()
+                    .coerceAtMost(ZOOM_RENDER_MAX_WIDTH_PX)
+            if (targetWidth > renderedWidthPixels) {
+                try {
+                    pageBitmap =
+                        readerBook.renderPage(
+                            pageIndex = pageIndex,
+                            targetWidthPx = targetWidth,
+                            backgroundColor = backgroundColor.toArgb(),
+                        )
+                    renderedWidthPixels = targetWidth
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (renderFailure: Exception) {
+                    Unit
+                }
+            }
+        }
     }
 
     LaunchedEffect(zoomState) {
-        val zoom = zoomState ?: return@LaunchedEffect
-        snapshotFlow { zoom.isZoomed }.collect { active -> onZoomActive(active) }
+        snapshotFlow { zoomState.isZoomed }.collect { isZoomed -> onZoomChanged(isZoomed) }
     }
 
+    DisposableEffect(pageIndex) {
+        onDispose { onZoomChanged(false) }
+    }
+
+    val bitmap = pageBitmap
     when {
-        bitmap == null && renderFailed -> ReaderPageError()
-        bitmap == null -> ReaderPageLoading()
-        else -> ZoomedPageImage(
-            bitmap = bitmap,
-            viewportSize = viewportSize,
-        )
+        bitmap == null && renderFailed -> {
+            ReaderPageError()
+        }
+
+        bitmap == null -> {
+            ReaderPageLoading()
+        }
+
+        else -> {
+            ZoomedPageImage(
+                bitmap = bitmap,
+                zoomState = zoomState,
+                onGestureEnd = { zoomSettleTick++ },
+            )
+        }
     }
 }
 
 @Composable
 private fun ZoomedPageImage(
     bitmap: Bitmap,
-    viewportSize: () -> IntSize,
+    zoomState: ZoomState,
+    onGestureEnd: () -> Unit,
 ) {
-    val zoomState = remember(bitmap) {
-        ZoomState(viewportSize, IntSize(bitmap.width, bitmap.height))
-    }
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clipToBounds(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = "PDF page",
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .zoomable(
-                    state = zoomState,
-                    onDoubleTap = { tapPoint ->
-                        if (zoomState.isZoomed) {
-                            zoomState.reset()
-                        } else {
-                            zoomState.zoomBy(DOUBLE_TAP_ZOOM_FACTOR, tapPoint)
-                        }
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .zoomable(
+                        state = zoomState,
+                        onDoubleTap = { tapPoint ->
+                            if (zoomState.isZoomed) {
+                                zoomState.reset()
+                            } else {
+                                zoomState.zoomBy(DOUBLE_TAP_ZOOM_FACTOR, tapPoint)
+                            }
+                        },
+                        onGestureEnd = onGestureEnd,
+                    ).graphicsLayer {
+                        scaleX = zoomState.scale
+                        scaleY = zoomState.scale
+                        translationX = zoomState.offsetX
+                        translationY = zoomState.offsetY
                     },
-                )
-                .graphicsLayer {
-                    scaleX = zoomState.scale
-                    scaleY = zoomState.scale
-                    translationX = zoomState.offsetX
-                    translationY = zoomState.offsetY
-                },
         )
     }
 }
@@ -349,10 +410,11 @@ private fun ReaderBottomBar(
     val displayValue = draggingValue ?: currentPage.toFloat()
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = ScreenPadding.medium, vertical = ScreenPadding.small),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = ScreenPadding.medium, vertical = ScreenPadding.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ScreenPadding.medium),
     ) {
@@ -379,3 +441,5 @@ private object ScreenPadding {
 }
 
 private const val DOUBLE_TAP_ZOOM_FACTOR = 2.5f
+private const val ZOOM_SHARPEN_THRESHOLD = 1.15f
+private const val ZOOM_RENDER_MAX_WIDTH_PX = 2400

@@ -22,7 +22,6 @@ import io.github.roshansoni_io.kitab.ui.theme.KitabTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
     private val pendingExternalBookUri = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,13 +43,15 @@ class MainActivity : ComponentActivity() {
         pendingExternalBookUri.value = externalBookUri(intent)
     }
 
-    private fun externalBookUri(intent: Intent): Uri? =
-        intent.takeIf { it.action == Intent.ACTION_VIEW }?.data
+    private fun externalBookUri(intent: Intent): Uri? = intent.takeIf { it.action == Intent.ACTION_VIEW }?.data
 }
 
 private sealed interface KitabScreen {
     data object Home : KitabScreen
-    data class Reading(val book: Book) : KitabScreen
+
+    data class Reading(
+        val book: Book,
+    ) : KitabScreen
 }
 
 @Composable
@@ -83,15 +84,19 @@ private fun KitabRoot(
     }
 
     when (val currentScreen = screen) {
-        KitabScreen.Home -> HomeScreen(
-            repository = repository,
-            onOpenBook = { book -> screen = KitabScreen.Reading(book) },
-        )
+        KitabScreen.Home -> {
+            HomeScreen(
+                repository = repository,
+                onOpenBook = { book -> screen = KitabScreen.Reading(book) },
+            )
+        }
 
-        is KitabScreen.Reading -> ReaderScreen(
-            book = currentScreen.book,
-            onBack = { screen = KitabScreen.Home },
-        )
+        is KitabScreen.Reading -> {
+            ReaderScreen(
+                book = currentScreen.book,
+                onBack = { screen = KitabScreen.Home },
+            )
+        }
     }
 
     if (isImportFailedDialogVisible) {

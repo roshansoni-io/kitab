@@ -58,20 +58,22 @@ fun HomeScreen(
         recents = repository.recentBooks()
     }
     val refreshRecents: () -> Unit = { recents = repository.recentBooks() }
-    val documentPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { pickedUri: Uri? ->
-        if (pickedUri != null) {
-            scope.launch {
-                repository.importBook(pickedUri)
-                    ?.let { book ->
-                        onOpenBook(book)
-                        refreshRecents()
-                    }
-                    ?: run { importFailedDialogVisible = true }
+    val documentPicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { pickedUri: Uri? ->
+            if (pickedUri != null) {
+                scope.launch {
+                    repository
+                        .importBook(pickedUri)
+                        ?.let { book ->
+                            onOpenBook(book)
+                            refreshRecents()
+                        }
+                        ?: run { importFailedDialogVisible = true }
+                }
             }
         }
-    }
 
     HomeScaffold(
         onShowAbout = { isAboutDialogVisible = true },
@@ -87,8 +89,10 @@ fun HomeScreen(
                 contentPadding = contentPadding,
                 onOpenBook = onOpenBook,
                 onRemoveBook = { removed ->
-                    repository.removeRecent(removed.uri)
-                    refreshRecents()
+                    scope.launch {
+                        repository.removeRecent(removed.uri)
+                        recents = repository.recentBooks()
+                    }
                 },
             )
         }
@@ -137,9 +141,7 @@ private fun HomeScaffold(
 }
 
 @Composable
-private fun HomeEmptyState(
-    modifier: Modifier = Modifier,
-) {
+private fun HomeEmptyState(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -164,20 +166,22 @@ private fun RecentBooksList(
     val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            top = contentPadding.calculateTopPadding() + 8.dp,
-            bottom = 96.dp,
-            start = contentPadding.calculateStartPadding(layoutDirection),
-            end = contentPadding.calculateEndPadding(layoutDirection),
-        ),
+        contentPadding =
+            PaddingValues(
+                top = contentPadding.calculateTopPadding() + 8.dp,
+                bottom = 96.dp,
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                end = contentPadding.calculateEndPadding(layoutDirection),
+            ),
     ) {
         items(items = books, key = { it.uri }) { book ->
             ListItem(
                 headlineContent = { Text(text = book.title) },
                 supportingContent = { Text(text = "PDF") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenBook(book) },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenBook(book) },
                 trailingContent = {
                     IconButton(onClick = { onRemoveBook(book) }) {
                         Icon(imageVector = Icons.Outlined.Close, contentDescription = "Remove")
@@ -189,9 +193,7 @@ private fun RecentBooksList(
 }
 
 @Composable
-private fun AboutDialog(
-    onDismiss: () -> Unit,
-) {
+private fun AboutDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -217,7 +219,8 @@ private fun ErrorDialog(
     )
 }
 
-private const val ABOUT_TEXT = "Kitab is an open-source book reader.\n\n" +
-    "PDF rendering is powered by MuPDF, Copyright (c) 2006-2026 Artifex Software, Inc., " +
-    "licensed under the GNU Affero General Public License v3. " +
-    "In accordance with the AGPL, the complete source code of this app is open source."
+private const val ABOUT_TEXT =
+    "Kitab is an open-source book reader.\n\n" +
+        "PDF rendering is powered by MuPDF, Copyright (c) 2006-2026 Artifex Software, Inc., " +
+        "licensed under the GNU Affero General Public License v3. " +
+        "In accordance with the AGPL, the complete source code of this app is open source."

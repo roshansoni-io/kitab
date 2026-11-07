@@ -11,27 +11,30 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
-class BookRepository(context: Context) {
-
+class BookRepository(
+    context: Context,
+) {
     private val appContext = context.applicationContext
     private val booksDir get() = File(appContext.filesDir, BOOKS_DIR)
     private val prefs get() = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    suspend fun importBook(uri: Uri): Book? = withContext(Dispatchers.IO) {
-        val displayName = queryDisplayName(uri) ?: DEFAULT_BOOK_TITLE
-        val cachedFile = copyToAppStorage(uri)
-            ?: return@withContext null
-        val book = Book(
-            uri = uri.toString(),
-            cachedPath = cachedFile.path,
-            title = displayName,
-        )
-        prependRecent(book)
-        book
-    }
+    suspend fun importBook(uri: Uri): Book? =
+        withContext(Dispatchers.IO) {
+            val displayName = queryDisplayName(uri) ?: DEFAULT_BOOK_TITLE
+            val cachedFile =
+                copyToAppStorage(uri)
+                    ?: return@withContext null
+            val book =
+                Book(
+                    uri = uri.toString(),
+                    cachedPath = cachedFile.path,
+                    title = displayName,
+                )
+            prependRecent(book)
+            book
+        }
 
-    fun recentBooks(): List<Book> =
-        decodeBooks(prefs.getString(RECENTS_KEY, null))
+    fun recentBooks(): List<Book> = decodeBooks(prefs.getString(RECENTS_KEY, null))
 
     fun removeRecent(uri: String) {
         recentBooks()
@@ -91,16 +94,18 @@ class BookRepository(context: Context) {
             title = entry?.optString(BOOK_TITLE) ?: "",
         )
 
-    private fun encodeBooks(books: List<Book>): String = JSONArray().apply {
-        books.forEach { book ->
-            put(
-                JSONObject()
-                    .put(BOOK_URI, book.uri)
-                    .put(BOOK_CACHED_PATH, book.cachedPath)
-                    .put(BOOK_TITLE, book.title),
-            )
-        }
-    }.toString()
+    private fun encodeBooks(books: List<Book>): String =
+        JSONArray()
+            .apply {
+                books.forEach { book ->
+                    put(
+                        JSONObject()
+                            .put(BOOK_URI, book.uri)
+                            .put(BOOK_CACHED_PATH, book.cachedPath)
+                            .put(BOOK_TITLE, book.title),
+                    )
+                }
+            }.toString()
 
     private companion object {
         const val PREFS_NAME = "kitab_books"

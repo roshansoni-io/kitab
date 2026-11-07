@@ -16,7 +16,7 @@ import kotlin.math.hypot
 
 class ZoomState(
     private val viewportSize: () -> IntSize,
-    val contentSize: IntSize,
+    private val contentSize: () -> IntSize,
 ) {
     var scale by mutableStateOf(1f)
         private set
@@ -35,7 +35,10 @@ class ZoomState(
         offsetY = 0f
     }
 
-    fun zoomBy(zoomFactor: Float, centroid: Offset) {
+    fun zoomBy(
+        zoomFactor: Float,
+        centroid: Offset,
+    ) {
         val newScale = (scale * zoomFactor).coerceIn(MIN_SCALE, MAX_SCALE)
         val retained = newScale / scale
         val pivot = centroid - viewportCenter()
@@ -63,9 +66,10 @@ class ZoomState(
 
     private fun clampOffsets() {
         val viewport = viewportSize()
-        if (contentSize == IntSize.Zero || viewport == IntSize.Zero) return
-        val maxOffsetX = maxOf(0f, contentSize.width * scale / 2f - viewport.width / 2f)
-        val maxOffsetY = maxOf(0f, contentSize.height * scale / 2f - viewport.height / 2f)
+        val content = contentSize()
+        if (content == IntSize.Zero || viewport == IntSize.Zero) return
+        val maxOffsetX = maxOf(0f, content.width * scale / 2f - viewport.width / 2f)
+        val maxOffsetY = maxOf(0f, content.height * scale / 2f - viewport.height / 2f)
         offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
         offsetY = offsetY.coerceIn(-maxOffsetY, maxOffsetY)
     }
@@ -82,63 +86,69 @@ fun Modifier.zoomable(
     state: ZoomState,
     onTap: () -> Unit = {},
     onDoubleTap: (Offset) -> Unit = {},
-): Modifier = pointerInput(state) {
-    awaitEachGesture {
-        var movement = 0f
-        var multipleFingers = false
-        var consuming = state.isZoomed
-        var previousCentroid: Offset? = null
-        var previousSpan = 0f
-        var releasedPosition: Offset? = null
+    onGestureEnd: () -> Unit = {},
+): Modifier =
+    pointerInput(state) {
+        awaitEachGesture {
+            var movement = 0f
+            var multipleFingers = false
+            var consuming = state.isZoomed
+            var previousCentroid: Offset? = null
+            var previousSpan = 0f
+            var releasedPosition: Offset? = null
 
-        awaitFirstDown(requireUnconsumed = false)
-        while (true) {
-            val event = awaitPointerEvent()
-            val pressed = event.changes.filter { it.pressed }
-            if (pressed.isEmpty()) {
-                releasedPosition = event.changes.lastOrNull()?.position
-                break
-            }
-            if (consuming) {
-                event.changes.forEach { change -> change.consume() }
-            }
+            awaitFirstDown(requireUnconsumed = false)
+            while (true) {
+                val event = awaitPointerEvent()
+                val pressed = event.changes.filter { it.pressed }
+                if (pressed.isEmpty()) {
+                    releasedPosition = event.changes.lastOrNull()?.position
+                    break
+                }
+                if (consuming) {
+                    event.changes.forEach { change -> change.consume() }
+                }
 
-            val centroid = pressedCentroid(pressed)
-            val span = pressedSpan(pressed)
-            val previous = previousCentroid
-            if (previous != null) {
-                val pan = centroid - previous
-                movement += pan.getDistance()
-                when {
-                    pressed.size >= 2 && previousSpan > 0f && span > 0f -> {
-                        state.zoomBy(span / previousSpan, centroid)
-                        consuming = true
-                    }
+                val centroid = pressedCentroid(pressed)
+                val span = pressedSpan(pressed)
+                val previous = previousCentroid
+                if (previous != null) {
+                    val pan = centroid - previous
+                    movement += pan.getDistance()
+                    when {
+                        pressed.size >= 2 && previousSpan > 0f && span > 0f -> {
+                            state.zoomBy(span / previousSpan, centroid)
+                            consuming = true
+                        }
 
-                    pressed.size >= 2 -> consuming = true
+                        pressed.size >= 2 -> {
+                            consuming = true
+                        }
 
-                    state.isZoomed -> {
-                        state.panBy(pan)
-                        consuming = true
+                        state.isZoomed -> {
+                            state.panBy(pan)
+                            consuming = true
+                        }
                     }
                 }
+                if (pressed.size >= 2) multipleFingers = true
+                previousCentroid = centroid
+                previousSpan = span
             }
-            if (pressed.size >= 2) multipleFingers = true
-            previousCentroid = centroid
-            previousSpan = span
-        }
 
-        state.settle()
+            state.settle()
+            onGestureEnd()
 
-        val isTap = !multipleFingers &&
-            movement <= viewConfiguration.touchSlop &&
-            releasedPosition != null
+            val isTap =
+                !multipleFingers &&
+                    movement <= viewConfiguration.touchSlop &&
+                    releasedPosition != null
 
-        if (isTap) {
-            maybeDetectDoubleTap(releasedPosition ?: Offset.Zero, onTap, onDoubleTap)
+            if (isTap) {
+                maybeDetectDoubleTap(releasedPosition ?: Offset.Zero, onTap, onDoubleTap)
+            }
         }
     }
-}
 
 private fun pressedCentroid(pressed: List<PointerInputChange>): Offset {
     val first = pressed.first().position
@@ -158,12 +168,13 @@ private suspend fun AwaitPointerEventScope.maybeDetectDoubleTap(
     onTap: () -> Unit,
     onDoubleTap: (Offset) -> Unit,
 ) {
-    val secondDown = withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
-        awaitFirstDown(requireUnconsumed = false)
-    } ?: run {
-        onTap()
-        return
-    }
+    val secondDown =
+        withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
+            awaitFirstDown(requireUnconsumed = false)
+        } ?: run {
+            onTap()
+            return
+        }
 
     var secondMovement = 0f
     var secondTapPoint: Offset? = secondDown.position
@@ -180,9 +191,10 @@ private suspend fun AwaitPointerEventScope.maybeDetectDoubleTap(
     }
 
     val secondTap = secondTapPoint
-    val isDoubleTap = secondTap != null &&
-        secondMovement <= viewConfiguration.touchSlop &&
-        hypot(secondTap.x - firstTapPoint.x, secondTap.y - firstTapPoint.y) <= DOUBLE_TAP_SLACK_PX
+    val isDoubleTap =
+        secondTap != null &&
+            secondMovement <= viewConfiguration.touchSlop &&
+            hypot(secondTap.x - firstTapPoint.x, secondTap.y - firstTapPoint.y) <= DOUBLE_TAP_SLACK_PX
 
     if (isDoubleTap) {
         onDoubleTap(secondTap)
