@@ -16,6 +16,10 @@ class ReaderBook private constructor(
 
     private val pageCache = PageBitmapCache(maxBytes = DEFAULT_CACHE_BYTES)
     private val linkTargetCache = mutableMapOf<Int, List<LinkTarget>>()
+    private val pageTextCache =
+        object : LinkedHashMap<Int, PageText>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, PageText>): Boolean = size > MAX_CACHED_TEXT_PAGES
+        }
     private val renderDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     suspend fun renderPage(
@@ -56,13 +60,21 @@ class ReaderBook private constructor(
             linkTargetCache.getOrPut(pageIndex) { document.linkTargets(pageIndex) }
         }
 
+    suspend fun pageText(pageIndex: Int): PageText =
+        withContext(renderDispatcher) {
+            pageTextCache.getOrPut(pageIndex) { document.pageText(pageIndex) }
+        }
+
     override fun close() {
         document.close()
         pageCache.clear()
+        linkTargetCache.clear()
+        pageTextCache.clear()
     }
 
     companion object {
         private const val DEFAULT_CACHE_BYTES = 96L * 1024 * 1024
+        private const val MAX_CACHED_TEXT_PAGES = 32
 
         fun open(file: File): ReaderBook {
             val document = MuPdfDocument.open(file)

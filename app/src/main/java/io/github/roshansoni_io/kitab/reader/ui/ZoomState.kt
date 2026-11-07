@@ -99,6 +99,9 @@ fun Modifier.zoomable(
     onTap: (Offset) -> Unit = {},
     onDoubleTap: (Offset) -> Unit = {},
     onGestureEnd: () -> Unit = {},
+    onLongPress: (Offset) -> Boolean = { false },
+    onSelectionDrag: (Offset) -> Unit = {},
+    onSelectionEnd: () -> Unit = {},
 ): Modifier =
     pointerInput(state) {
         awaitEachGesture {
@@ -107,16 +110,69 @@ fun Modifier.zoomable(
             var consuming = state.isZoomed
             var previousCentroid: Offset? = null
             var previousSpan = 0f
+            var pointerCount = 1
             var releasedPosition: Offset? = null
+            var selecting = false
+            var longPressFired = false
+            var lastPosition: Offset
 
-            awaitFirstDown(requireUnconsumed = false)
+            val down = awaitFirstDown(requireUnconsumed = false)
+            lastPosition = down.position
+            val downTime = System.currentTimeMillis()
+
             while (true) {
-                val event = awaitPointerEvent()
+                val longPressRemaining =
+                    if (!longPressFired && !multipleFingers && movement <= viewConfiguration.touchSlop) {
+                        viewConfiguration.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)
+                    } else {
+                        -1L
+                    }
+
+                if (longPressRemaining <= 0 && !longPressFired &&
+                    !multipleFingers && movement <= viewConfiguration.touchSlop
+                ) {
+                    longPressFired = true
+                    if (onLongPress(lastPosition)) selecting = true
+                    continue
+                }
+
+                val event =
+                    if (longPressRemaining > 0) {
+                        withTimeoutOrNull(longPressRemaining) { awaitPointerEvent() }
+                    } else {
+                        awaitPointerEvent()
+                    }
+                if (event == null) {
+                    longPressFired = true
+                    if (onLongPress(lastPosition)) selecting = true
+                    continue
+                }
+
                 val pressed = event.changes.filter { it.pressed }
                 if (pressed.isEmpty()) {
                     releasedPosition = event.changes.lastOrNull()?.position
                     break
                 }
+                lastPosition = pressed.first().position
+
+                if (selecting) {
+                    event.changes.forEach { change -> change.consume() }
+                    onSelectionDrag(lastPosition)
+                    continue
+                }
+
+                // A finger added or lifted changes the centroid discontinuously;
+                // skip this frame's delta so the content does not jump.
+                if (pressed.size != pointerCount) {
+                    pointerCount = pressed.size
+                    previousCentroid = null
+                    previousSpan = 0f
+                    if (pressed.size >= 2) multipleFingers = true
+                    previousCentroid = pressedCentroid(pressed)
+                    previousSpan = pressedSpan(pressed)
+                    continue
+                }
+
                 if (consuming) {
                     event.changes.forEach { change -> change.consume() }
                 }
@@ -133,19 +189,19 @@ fun Modifier.zoomable(
                             consuming = true
                         }
 
-                        pressed.size >= 2 -> {
-                            consuming = true
-                        }
-
-                        state.isZoomed -> {
+                        state.isZoomed && pressed.size == 1 -> {
                             state.panBy(pan)
                             consuming = true
                         }
                     }
                 }
-                if (pressed.size >= 2) multipleFingers = true
                 previousCentroid = centroid
                 previousSpan = span
+            }
+
+            if (selecting) {
+                onSelectionEnd()
+                return@awaitEachGesture
             }
 
             state.settle()
@@ -153,6 +209,7 @@ fun Modifier.zoomable(
 
             val isTap =
                 !multipleFingers &&
+                    !longPressFired &&
                     movement <= viewConfiguration.touchSlop &&
                     releasedPosition != null
 

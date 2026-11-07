@@ -3,6 +3,7 @@ package io.github.roshansoni_io.kitab.reader.ui
 import android.graphics.Bitmap
 import android.graphics.RectF
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.sqrt
 
 /**
  * Pure coordinate math for fitting and sharpening the rendered page inside the viewport.
@@ -93,10 +94,26 @@ object PageGeometry {
             )
         if (region.width() <= 0.5f || region.height() <= 0.5f) return null
 
-        // Screen-pixel density: region points × fit × zoom equals the on-screen size.
-        val outputZoom = fit * zoomScale
+        // Supersample the visible region so text stays crisp even when the user
+        // keeps pinching further before the next re-render.
+        val desiredZoom = fit * zoomScale * SUPERSAMPLE
+        val pixelArea = region.width() * region.height()
+        val maxZoomByPixels = sqrt(MAX_REGION_PIXELS / pixelArea)
+        val maxZoomByDimension =
+            minOf(
+                MAX_REGION_DIMENSION / region.width(),
+                MAX_REGION_DIMENSION / region.height(),
+            )
+        val outputZoom = minOf(desiredZoom, maxZoomByPixels, maxZoomByDimension)
         return RegionRenderSpec(pageRect = region, zoom = outputZoom)
     }
+
+    /** Extra render density on top of screen pixels. */
+    private const val SUPERSAMPLE = 2f
+
+    /** Safety caps for the single sharp-region bitmap. */
+    private const val MAX_REGION_PIXELS = 12_000_000f
+    private const val MAX_REGION_DIMENSION = 4096f
 }
 
 /** A sub-rectangle of a page (PDF points) and the density to render it at. */

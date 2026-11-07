@@ -122,6 +122,41 @@ class MuPdfDocument internal constructor(
             }
         }
 
+    fun pageText(pageIndex: Int): PageText =
+        synchronized(lock) {
+            checkOpen()
+            val page = loadPage(pageIndex)
+            try {
+                val structured = page.toStructuredText("preserve-whitespace")
+                try {
+                    val chars = mutableListOf<PageChar>()
+                    var lineIndex = 0
+                    for (block in structured.getBlocks()) {
+                        for (line in block.lines) {
+                            for (char in line.chars) {
+                                val rect = char.quad.toRect()
+                                chars +=
+                                    PageChar(
+                                        text = codePointToString(char.c),
+                                        rect = RectF(rect.x0, rect.y0, rect.x1, rect.y1),
+                                        isWhitespace = char.isWhitespace(),
+                                        lineIndex = lineIndex,
+                                    )
+                            }
+                            lineIndex++
+                        }
+                    }
+                    PageText(chars)
+                } finally {
+                    structured.destroy()
+                }
+            } finally {
+                page.destroy()
+            }
+        }
+
+    private fun codePointToString(codePoint: Int): String = runCatching { String(Character.toChars(codePoint)) }.getOrDefault("?")
+
     private fun buildRegionBitmap(
         page: Page,
         pageRect: RectF,

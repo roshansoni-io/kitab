@@ -115,14 +115,30 @@
 - [x] Internal links jump the pager; external links show a "Open <host>?" confirm chip; opening uses
   `ACTION_VIEW` with a toast fallback when no app handles the URI
 
-### 4. Build & Verify
+### 4. Resolution & zoom-jump fixes (user-reported)
+- [x] Sharp region now supersampled 2× beyond screen pixels, capped at 12 MP / 4096 px per side
+      (`PageGeometry.SUPERSAMPLE`, `MAX_REGION_PIXELS`, `MAX_REGION_DIMENSION`)
+- [x] Zoom no longer jumps when a finger lifts mid-pinch — `ZoomState.zoomable` resets its
+      centroid/span baseline on every pointer-count change instead of applying one stale delta
+- [x] Long-press gesture: tap suppressed after a long press, selection only entered when a
+      character was actually found (`onLongPress` returns Boolean)
+
+### 5. Text selection & copy
+- [x] Data layer: `MuPdfDocument.pageText()` extracts per-character quads + line indices via
+      `toStructuredText("preserve-whitespace")`; `ReaderBook.pageText()` cached (LRU, 32 pages)
+- [x] `reader/PageText.kt`: `PageChar`/`PageText`, `textOf(range)` with line-break insertion
+- [x] `reader/ui/TextSelection.kt`: `charNear()` (exact hit or nearest within slop),
+      `wordRangeAt()` word snap, `selectionFor()` word-granular extend from the anchor word
+- [x] `reader/ui/SelectionOverlay.kt`: highlight quads drawn inside the zoom transform
+      (`SelectionOverlay`) + Copy/Close floating toolbar (`SelectionToolbar`, clipboard via
+      `LocalClipboardManager`)
+- [x] `ZoomState.zoomable` long-press detection (timeout without movement), drag-to-extend,
+      pager locked while selecting (`selectingPages`), tap clears an active selection
+
+### 6. Build & Verify
 - [x] `:app:compileDebugKotlin` + `:app:ktlintCheck` + `:app:assembleDebug` green
 - [ ] Manual device test
 - [x] Commit
-
-### 5. Selection & copy (pending)
-- [ ] Long-press word snap (`snapSelection`), drag extend, quad overlay in same `graphicsLayer`,
-      Copy/Close floating toolbar, clipboard
 
 ---
 
