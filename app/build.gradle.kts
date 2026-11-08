@@ -1,8 +1,19 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val releaseKeystoreProperties =
+    Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
+    }
 
 android {
     namespace = "io.github.roshansoni_io.kitab"
@@ -16,6 +27,24 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val configuredStoreFile = releaseKeystoreProperties.getProperty("storeFile")
+            if (configuredStoreFile != null) {
+                storeFile = rootProject.file(configuredStoreFile)
+                storePassword = releaseKeystoreProperties.getProperty("storePassword")
+                keyAlias = releaseKeystoreProperties.getProperty("keyAlias")
+                keyPassword = releaseKeystoreProperties.getProperty("keyPassword")
+            } else {
+                // Keep release builds installable on machines without a release key.
+                storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         debug {
             ndk {
@@ -25,6 +54,7 @@ android {
 
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -81,6 +111,7 @@ dependencies {
     ktlint(libs.ktlint.cli)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.artifex.mupdf.fitz)

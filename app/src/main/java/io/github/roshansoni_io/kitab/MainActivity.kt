@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import io.github.roshansoni_io.kitab.book.Book
 import io.github.roshansoni_io.kitab.book.BookRepository
 import io.github.roshansoni_io.kitab.home.HomeScreen
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     private val pendingExternalBookUri = mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingExternalBookUri.value = externalBookUri(intent)

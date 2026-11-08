@@ -6,3 +6,9 @@ build
 
 # Ignore Kotlin plugin data
 .kotlin
+
+# Release signing material (never commit)
+keystore.properties
+keystore/
+*.jks
+*.keystore

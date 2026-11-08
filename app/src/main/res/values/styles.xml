@@ -1,0 +1,13 @@
+<resources>
+    <style name="Theme.Kitab" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:colorAccent">@color/brand_primary</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
+    <style name="Theme.Kitab.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_kitab_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Kitab</item>
+    </style>
+</resources>
