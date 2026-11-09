@@ -20,6 +20,8 @@ class PageMapper(
     private val scale: Float
     private val offsetX: Float
     private val offsetY: Float
+    private val pageLeft: Float = pageSizePoints.left
+    private val pageTop: Float = pageSizePoints.top
 
     init {
         val pageWidth = pageSizePoints.right - pageSizePoints.left
@@ -45,7 +47,18 @@ class PageMapper(
     val isUsable: Boolean get() = scale > 0f
 
     /** Converts a point from un-zoomed display space to PDF page points. */
-    fun toPagePoint(display: Offset): Offset = Offset((display.x - offsetX) / scale, (display.y - offsetY) / scale)
+    fun toPagePoint(display: Offset): Offset =
+        Offset(
+            pageLeft + (display.x - offsetX) / scale,
+            pageTop + (display.y - offsetY) / scale,
+        )
+
+    /** Converts a PDF page point to un-zoomed display space. */
+    fun toDisplay(pagePoint: Offset): Offset =
+        Offset(
+            offsetX + (pagePoint.x - pageLeft) * scale,
+            offsetY + (pagePoint.y - pageTop) * scale,
+        )
 
     /** Returns the link whose region contains [pagePoint] (slop-expanded), if any. */
     fun hitTest(

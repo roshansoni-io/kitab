@@ -2,9 +2,11 @@ package io.github.roshansoni_io.kitab.reader.ui
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -76,6 +78,13 @@ class ZoomState(
         return center + Offset(panned.x / scale, panned.y / scale)
     }
 
+    /** Inverse of [fromScreen]: maps un-zoomed content coordinates to layout coordinates. */
+    fun toScreen(point: Offset): Offset {
+        val center = viewportCenter()
+        if (viewportSize() == IntSize.Zero) return point
+        return center + Offset((point.x - center.x) * scale + offsetX, (point.y - center.y) * scale + offsetY)
+    }
+
     private fun clampOffsets() {
         val viewport = viewportSize()
         val content = contentSize()
@@ -94,6 +103,7 @@ class ZoomState(
     }
 }
 
+@Composable
 fun Modifier.zoomable(
     state: ZoomState,
     onTap: (Offset) -> Unit = {},
@@ -102,8 +112,24 @@ fun Modifier.zoomable(
     onLongPress: (Offset) -> Boolean = { false },
     onSelectionDrag: (Offset) -> Unit = {},
     onSelectionEnd: () -> Unit = {},
-): Modifier =
-    pointerInput(state) {
+    onHandleHit: (Offset) -> Boolean = { false },
+    onHandleDrag: (Offset) -> Unit = {},
+    onHandleEnd: () -> Unit = {},
+): Modifier {
+    // A pointerInput coroutine can outlive several recompositions. Keep the
+    // callbacks current so a gesture started before page text loads does not
+    // keep using the initial (empty) pageText captured by its closure.
+    val currentOnTap by rememberUpdatedState(onTap)
+    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
+    val currentOnGestureEnd by rememberUpdatedState(onGestureEnd)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val currentOnSelectionDrag by rememberUpdatedState(onSelectionDrag)
+    val currentOnSelectionEnd by rememberUpdatedState(onSelectionEnd)
+    val currentOnHandleHit by rememberUpdatedState(onHandleHit)
+    val currentOnHandleDrag by rememberUpdatedState(onHandleDrag)
+    val currentOnHandleEnd by rememberUpdatedState(onHandleEnd)
+
+    return pointerInput(state) {
         awaitEachGesture {
             var movement = 0f
             var multipleFingers = false
@@ -117,6 +143,21 @@ fun Modifier.zoomable(
             var lastPosition: Offset
 
             val down = awaitFirstDown(requireUnconsumed = false)
+            if (currentOnHandleHit(down.position)) {
+                down.consume()
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) break
+                        event.changes.forEach { it.consume() }
+                        currentOnHandleDrag(pressed.first().position)
+                    }
+                } finally {
+                    currentOnHandleEnd()
+                }
+                return@awaitEachGesture
+            }
             lastPosition = down.position
             val downTime = System.currentTimeMillis()
 
@@ -132,7 +173,7 @@ fun Modifier.zoomable(
                     !multipleFingers && movement <= viewConfiguration.touchSlop
                 ) {
                     longPressFired = true
-                    if (onLongPress(lastPosition)) selecting = true
+                    if (currentOnLongPress(lastPosition)) selecting = true
                     continue
                 }
 
@@ -144,7 +185,7 @@ fun Modifier.zoomable(
                     }
                 if (event == null) {
                     longPressFired = true
-                    if (onLongPress(lastPosition)) selecting = true
+                    if (currentOnLongPress(lastPosition)) selecting = true
                     continue
                 }
 
@@ -157,7 +198,7 @@ fun Modifier.zoomable(
 
                 if (selecting) {
                     event.changes.forEach { change -> change.consume() }
-                    onSelectionDrag(lastPosition)
+                    currentOnSelectionDrag(lastPosition)
                     continue
                 }
 
@@ -200,12 +241,12 @@ fun Modifier.zoomable(
             }
 
             if (selecting) {
-                onSelectionEnd()
+                currentOnSelectionEnd()
                 return@awaitEachGesture
             }
 
             state.settle()
-            onGestureEnd()
+            currentOnGestureEnd()
 
             val isTap =
                 !multipleFingers &&
@@ -214,10 +255,15 @@ fun Modifier.zoomable(
                     releasedPosition != null
 
             if (isTap) {
-                maybeDetectDoubleTap(releasedPosition ?: Offset.Zero, onTap, onDoubleTap)
+                maybeDetectDoubleTap(
+                    releasedPosition ?: Offset.Zero,
+                    { point -> currentOnTap(point) },
+                    { point -> currentOnDoubleTap(point) },
+                )
             }
         }
     }
+}
 
 private fun pressedCentroid(pressed: List<PointerInputChange>): Offset {
     val first = pressed.first().position

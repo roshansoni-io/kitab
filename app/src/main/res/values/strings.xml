@@ -1,3 +1,8 @@
 <resources>
-  <string name="app_name">Kitab</string>
-  </resources>
+    <string name="app_name">Kitab</string>
+
+    <string name="selection_action_copy">Copy</string>
+    <string name="selection_action_select_all">Select all</string>
+    <string name="selection_action_share">Share</string>
+    <string name="selection_action_close">Close</string>
+</resources>

@@ -1,14 +1,16 @@
 package io.github.roshansoni_io.kitab.reader.ui
 
 import android.content.ClipData
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.RectF
+import android.util.Log
 import android.view.ViewConfiguration
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import io.github.roshansoni_io.kitab.reader.LinkTarget
 import io.github.roshansoni_io.kitab.reader.PageText
 import io.github.roshansoni_io.kitab.reader.ReaderBook
@@ -65,22 +69,46 @@ internal fun ReaderPage(
     var pageSize by remember(pageIndex) { mutableStateOf<RectF?>(null) }
     var linkTargets by remember(pageIndex) { mutableStateOf<List<LinkTarget>>(emptyList()) }
     var pageText by remember(pageIndex) { mutableStateOf<PageText?>(null) }
+    var pageTextLoadFailed by remember(pageIndex) { mutableStateOf(false) }
+    var selectionStart by remember(pageIndex) { mutableStateOf<Int?>(null) }
+    var selectionEnd by remember(pageIndex) { mutableStateOf<Int?>(null) }
     var anchorWord by remember(pageIndex) { mutableStateOf<IntRange?>(null) }
-    var selection by remember(pageIndex) { mutableStateOf<TextSelection?>(null) }
+    var activeHandle by remember(pageIndex) { mutableStateOf<SelectionHandle?>(null) }
+    val selection =
+        remember(selectionStart, selectionEnd, pageText) {
+            val text = pageText
+            val start = selectionStart
+            val end = selectionEnd
+            if (text != null && start != null && end != null) {
+                text.selectionBetween(start, end)
+            } else {
+                null
+            }
+        }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val density = LocalDensity.current
     val touchSlopPx = remember(context) { ViewConfiguration.get(context).scaledTouchSlop.toFloat() }
+    val handleTouchRadiusPx = with(density) { 24.dp.toPx() }
 
     LaunchedEffect(pageIndex) {
         try {
             pageSize = readerBook.pageSize(pageIndex)
             linkTargets = readerBook.linkTargets(pageIndex)
-            pageText = readerBook.pageText(pageIndex)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (loadFailure: Exception) {
-            Unit
+        } catch (failure: Exception) {
+            Log.e("ReaderPage", "Could not load page geometry or links for page $pageIndex", failure)
+        }
+        try {
+            pageText = readerBook.pageText(pageIndex)
+            Log.d("ReaderPage", "Loaded ${pageText?.chars?.size ?: 0} text characters on page $pageIndex")
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            pageTextLoadFailed = true
+            Log.e("ReaderPage", "Could not extract text on page $pageIndex", failure)
         }
     }
 
@@ -107,6 +135,75 @@ internal fun ReaderPage(
         val mapper = PageMapper(points, viewportSize())
         if (!mapper.isUsable) return null
         return mapper.toPagePoint(zoomState.fromScreen(layout))
+    }
+
+    fun toScreen(pagePoint: Offset): Offset? {
+        val points = pageSize ?: return null
+        val mapper = PageMapper(points, viewportSize())
+        if (!mapper.isUsable) return null
+        return zoomState.toScreen(mapper.toDisplay(pagePoint))
+    }
+
+    fun clearSelection() {
+        selectionStart = null
+        selectionEnd = null
+        anchorWord = null
+        activeHandle = null
+    }
+
+    fun handleAnchors(): Pair<Offset, Offset>? {
+        val text = pageText ?: return null
+        val start = selectionStart ?: return null
+        val end = selectionEnd ?: return null
+        val startRect = text.chars.getOrNull(start)?.rect ?: return null
+        val endRect = text.chars.getOrNull(end.coerceAtLeast(start))?.rect ?: return null
+
+        val startAnchor = toScreen(Offset(startRect.left, startRect.bottom)) ?: return null
+        val endAnchor = toScreen(Offset(endRect.right, endRect.bottom)) ?: return null
+        return startAnchor to endAnchor
+    }
+
+    fun handleAt(position: Offset): SelectionHandle? {
+        val (start, end) = handleAnchors() ?: return null
+        val toStart = (position - start).getDistance()
+        val toEnd = (position - end).getDistance()
+        return when {
+            toStart <= handleTouchRadiusPx && toStart <= toEnd -> SelectionHandle.Start
+            toEnd <= handleTouchRadiusPx -> SelectionHandle.End
+            else -> null
+        }
+    }
+
+    fun dragSelectionHandle(position: Offset) {
+        val text = pageText ?: return
+        val handle = activeHandle ?: return
+        val point = toPagePoint(position) ?: return
+        val index =
+            text.charNear(point)?.coerceIn(0, text.chars.lastIndex)
+                ?: return
+        when (handle) {
+            SelectionHandle.Start -> {
+                val end = selectionEnd ?: return
+                if (index >= end) {
+                    selectionStart = end
+                    selectionEnd = index
+                    activeHandle = SelectionHandle.End
+                } else {
+                    selectionStart = index
+                }
+            }
+
+            SelectionHandle.End -> {
+                val start = selectionStart ?: return
+                if (index <= start) {
+                    selectionEnd = start
+                    selectionStart = index
+                    activeHandle = SelectionHandle.Start
+                } else {
+                    selectionEnd = index
+                }
+            }
+        }
     }
 
     LaunchedEffect(pageIndex, pageWidthPx) {
@@ -194,6 +291,58 @@ internal fun ReaderPage(
         }
 
         else -> {
+            val selectionPageBounds =
+                remember(selection) {
+                    selection
+                        ?.rects
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { rects ->
+                            RectF(
+                                rects.minOf { it.left },
+                                rects.minOf { it.top },
+                                rects.maxOf { it.right },
+                                rects.maxOf { it.bottom },
+                            )
+                        }
+                }
+            val selectionScreenBounds =
+                selectionPageBounds?.let { bounds ->
+                    val topLeft = toScreen(Offset(bounds.left, bounds.top))
+                    val bottomRight = toScreen(Offset(bounds.right, bounds.bottom))
+                    if (topLeft != null && bottomRight != null) {
+                        RectF(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y)
+                    } else {
+                        null
+                    }
+                }
+            var toolbarSize by remember { mutableStateOf(IntSize.Zero) }
+            val gap = with(density) { 8.dp.toPx() }
+            val margin = with(density) { 8.dp.toPx() }
+            val toolbarOffset =
+                if (selectionScreenBounds != null && toolbarSize != IntSize.Zero) {
+                    val viewport = viewportSize()
+                    val x =
+                        (selectionScreenBounds.centerX() - toolbarSize.width / 2f)
+                            .coerceIn(
+                                margin,
+                                (viewport.width - toolbarSize.width - margin).coerceAtLeast(margin),
+                            )
+                    val above = selectionScreenBounds.top - toolbarSize.height - gap
+                    val y =
+                        if (above >= margin) {
+                            above
+                        } else {
+                            (selectionScreenBounds.bottom + gap)
+                                .coerceAtMost(
+                                    (viewport.height - toolbarSize.height - margin)
+                                        .coerceAtLeast(margin),
+                                )
+                        }
+                    IntOffset(x.roundToInt(), y.roundToInt())
+                } else {
+                    IntOffset.Zero
+                }
+
             Box(modifier = Modifier.fillMaxSize()) {
                 ZoomedPageImage(
                     bitmap = bitmap,
@@ -204,8 +353,7 @@ internal fun ReaderPage(
                     onGestureEnd = { zoomSettleTick++ },
                     onTap = { tapPoint ->
                         if (selection != null) {
-                            selection = null
-                            anchorWord = null
+                            clearSelection()
                         } else {
                             val points = pageSize
                             val pagePoint = toPagePoint(tapPoint)
@@ -219,6 +367,15 @@ internal fun ReaderPage(
                     onLongPress = { position ->
                         val text = pageText
                         val point = toPagePoint(position)
+                        if (text != null && text.isEmpty) {
+                            val message =
+                                if (pageTextLoadFailed) {
+                                    "Could not read text on this page"
+                                } else {
+                                    "This page has no selectable text; it may be scanned"
+                                }
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
                         val index =
                             if (text != null && point != null) {
                                 text.charNear(point, maxDistance = LONG_PRESS_SLOP_POINTS)
@@ -228,10 +385,15 @@ internal fun ReaderPage(
                         if (text != null && index != null) {
                             val word = text.wordRangeAt(index)
                             anchorWord = word
-                            selection = text.selectionFor(word, index)
+                            selectionStart = word.first
+                            selectionEnd = word.last
                             onSelectingChanged(true)
                             true
                         } else {
+                            if (text != null) {
+                                Log.d("ReaderPage", "No text character near long press on page $pageIndex at $point")
+                                Toast.makeText(context, "Couldn't detect text at this position", Toast.LENGTH_SHORT).show()
+                            }
                             false
                         }
                     },
@@ -242,31 +404,72 @@ internal fun ReaderPage(
                         if (text != null && anchor != null && point != null) {
                             val focus = text.charNear(point)
                             if (focus != null) {
-                                selection = text.selectionFor(anchor, focus)
+                                val range = text.wordSelectionRange(anchor, focus)
+                                selectionStart = range.first
+                                selectionEnd = range.last
                             }
                         }
                     },
                     onSelectionEnd = { onSelectingChanged(false) },
+                    onHandleHit = { position ->
+                        val handle = handleAt(position)
+                        if (handle != null) {
+                            activeHandle = handle
+                            anchorWord = null
+                            onSelectingChanged(true)
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    onHandleDrag = { position -> dragSelectionHandle(position) },
+                    onHandleEnd = {
+                        activeHandle = null
+                        onSelectingChanged(false)
+                    },
                 )
-                selection?.let { current ->
+                val anchors = handleAnchors()
+                if (selection != null && anchors != null) {
+                    SelectionHandles(
+                        start = anchors.first,
+                        end = anchors.second,
+                    )
+                }
+                if (selection != null && selectionScreenBounds != null) {
                     SelectionToolbar(
                         onCopy = {
                             scope.launch {
                                 clipboard.setClipEntry(
-                                    ClipEntry(ClipData.newPlainText("Kitab", current.text)),
+                                    ClipEntry(ClipData.newPlainText("Kitab", selection.text)),
                                 )
                             }
-                            selection = null
-                            anchorWord = null
                         },
-                        onClose = {
-                            selection = null
-                            anchorWord = null
+                        onSelectAll = {
+                            val text = pageText
+                            if (text != null && text.chars.isNotEmpty()) {
+                                selectionStart = 0
+                                selectionEnd = text.chars.lastIndex
+                                anchorWord = null
+                            }
                         },
+                        onShare = {
+                            val share =
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, selection.text)
+                                }
+                            context.startActivity(
+                                Intent
+                                    .createChooser(share, "Share text")
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        },
+                        onClose = { clearSelection() },
                         modifier =
                             Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 16.dp),
+                                .offset { toolbarOffset }
+                                .onSizeChanged { toolbarSize = it }
+                                .zIndex(1f),
                     )
                 }
             }
@@ -286,6 +489,9 @@ private fun ZoomedPageImage(
     onLongPress: (Offset) -> Boolean,
     onSelectionDrag: (Offset) -> Unit,
     onSelectionEnd: () -> Unit,
+    onHandleHit: (Offset) -> Boolean,
+    onHandleDrag: (Offset) -> Unit,
+    onHandleEnd: () -> Unit,
 ) {
     val density = LocalDensity.current
     Box(
@@ -314,6 +520,9 @@ private fun ZoomedPageImage(
                         onLongPress = onLongPress,
                         onSelectionDrag = onSelectionDrag,
                         onSelectionEnd = onSelectionEnd,
+                        onHandleHit = onHandleHit,
+                        onHandleDrag = onHandleDrag,
+                        onHandleEnd = onHandleEnd,
                     ).graphicsLayer {
                         scaleX = zoomState.scale
                         scaleY = zoomState.scale
@@ -350,7 +559,7 @@ private fun ZoomedPageImage(
             val points = pageSize
             if (selection != null && points != null) {
                 SelectionOverlay(
-                    rects = selection.rects,
+                    rectsByLine = selection.rectsByLine,
                     pageSize = points,
                 )
             }
