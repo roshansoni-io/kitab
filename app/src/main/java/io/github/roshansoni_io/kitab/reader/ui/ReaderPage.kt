@@ -46,8 +46,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.reader.LinkTarget
-import io.github.roshansoni_io.kitab.reader.PageText
 import io.github.roshansoni_io.kitab.reader.ReaderBook
+import io.github.roshansoni_io.kitab.selection.PageText
+import io.github.roshansoni_io.kitab.selection.SELECTION_HANDLE_HEIGHT
+import io.github.roshansoni_io.kitab.selection.SELECTION_HANDLE_WIDTH
+import io.github.roshansoni_io.kitab.selection.SelectionHandle
+import io.github.roshansoni_io.kitab.selection.SelectionHandles
+import io.github.roshansoni_io.kitab.selection.SelectionOverlay
+import io.github.roshansoni_io.kitab.selection.SelectionToolbar
+import io.github.roshansoni_io.kitab.selection.TextSelection
+import io.github.roshansoni_io.kitab.selection.TextSelectionState
+import io.github.roshansoni_io.kitab.selection.charNear
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -74,21 +83,8 @@ internal fun ReaderPage(
     var linkTargets by remember(pageIndex) { mutableStateOf<List<LinkTarget>>(emptyList()) }
     var pageText by remember(pageIndex) { mutableStateOf<PageText?>(null) }
     var pageTextLoadFailed by remember(pageIndex) { mutableStateOf(false) }
-    var selectionRange by remember(pageIndex) { mutableStateOf<IntRange?>(null) }
-    var anchorWord by remember(pageIndex) { mutableStateOf<IntRange?>(null) }
-    var activeHandle by remember(pageIndex) { mutableStateOf<SelectionHandle?>(null) }
-    var activeHandleTip by remember(pageIndex) { mutableStateOf<Offset?>(null) }
-    var handleTouchOffset by remember(pageIndex) { mutableStateOf(Offset.Zero) }
-    val selection =
-        remember(selectionRange, pageText) {
-            val range = selectionRange
-            val text = pageText
-            if (text != null && range != null && !text.isEmpty) {
-                text.selectionBetween(range.first, range.last)
-            } else {
-                null
-            }
-        }
+    val textSelectionState = remember(pageIndex) { TextSelectionState() }
+    val selection = remember(textSelectionState.range, pageText) { textSelectionState.selection(pageText) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -151,90 +147,9 @@ internal fun ReaderPage(
         return zoomState.toScreen(mapper.toDisplay(pagePoint))
     }
 
-    fun clearSelection() {
-        selectionRange = null
-        anchorWord = null
-        activeHandle = null
-        activeHandleTip = null
-    }
+    fun clearSelection() = textSelectionState.clear()
 
-    fun handleAnchors(): Pair<Offset, Offset>? {
-        val text = pageText ?: return null
-        val range = selectionRange ?: return null
-        val start = range.first
-        val end = range.last
-        val startRect = text.chars.getOrNull(start)?.rect ?: return null
-        val endRect = text.chars.getOrNull(end.coerceAtLeast(start))?.rect ?: return null
-
-        val startAnchor = toScreen(Offset(startRect.left, startRect.bottom)) ?: return null
-        val endAnchor = toScreen(Offset(endRect.right, endRect.bottom)) ?: return null
-        return startAnchor to endAnchor
-    }
-
-    fun handleAt(position: Offset): SelectionHandle? {
-        val (start, end) = handleAnchors() ?: return null
-
-        fun contains(anchor: Offset): Boolean =
-            abs(position.x - anchor.x) <= handleWidthPx / 2f + handleTouchSlopPx &&
-                position.y >= anchor.y - handleTouchSlopPx &&
-                position.y <= anchor.y + handleHeightPx + handleTouchSlopPx
-
-        val hitsStart = contains(start)
-        val hitsEnd = contains(end)
-        return when {
-            hitsStart && hitsEnd -> {
-                if ((position - start).getDistance() <= (position - end).getDistance()) {
-                    SelectionHandle.Start
-                } else {
-                    SelectionHandle.End
-                }
-            }
-
-            hitsStart -> {
-                SelectionHandle.Start
-            }
-
-            hitsEnd -> {
-                SelectionHandle.End
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    fun dragSelectionHandle(position: Offset) {
-        val text = pageText ?: return
-        val handle = activeHandle ?: return
-        val point = toPagePoint(position) ?: return
-        val index =
-            text.charNear(point)?.coerceIn(0, text.chars.lastIndex)
-                ?: return
-        when (handle) {
-            SelectionHandle.Start -> {
-                val range = selectionRange ?: return
-                val end = range.last
-                if (index >= end) {
-                    selectionRange = end..index
-                    activeHandle = SelectionHandle.End
-                } else {
-                    selectionRange = index..end
-                }
-            }
-
-            SelectionHandle.End -> {
-                val range = selectionRange ?: return
-                val start = range.first
-                if (index <= start) {
-                    selectionRange = index..start
-                    activeHandle = SelectionHandle.Start
-                } else {
-                    selectionRange = start..index
-                }
-            }
-        }
-    }
+    fun handleAnchors(): Pair<Offset, Offset>? = textSelectionState.handleAnchors(pageText, ::toScreen)
 
     LaunchedEffect(pageIndex, pageWidthPx) {
         if (pageWidthPx > 0 && pageBitmap == null && !renderFailed) {
@@ -400,9 +315,7 @@ internal fun ReaderPage(
                                 null
                             }
                         if (text != null && index != null) {
-                            val word = text.wordRangeAt(index)
-                            anchorWord = word
-                            selectionRange = word
+                            textSelectionState.selectWord(text, index)
                             onSelectingChanged(true)
                             true
                         } else {
@@ -415,26 +328,24 @@ internal fun ReaderPage(
                     },
                     onSelectionDrag = { position ->
                         val text = pageText
-                        val anchor = anchorWord
                         val point = toPagePoint(position)
-                        if (text != null && anchor != null && point != null) {
-                            val focus = text.charNear(point)
-                            if (focus != null) {
-                                val range = text.wordSelectionRange(anchor, focus)
-                                selectionRange = range
-                            }
+                        if (text != null && point != null) {
+                            textSelectionState.dragWordSelection(text, point)
                         }
                     },
                     onSelectionEnd = { onSelectingChanged(false) },
                     onHandleHit = { position ->
-                        val handle = handleAt(position)
                         val anchors = handleAnchors()
+                        val handle =
+                            textSelectionState.handleAt(
+                                position,
+                                anchors,
+                                handleWidthPx,
+                                handleHeightPx,
+                                handleTouchSlopPx,
+                            )
                         if (handle != null && anchors != null) {
-                            val anchor = if (handle == SelectionHandle.Start) anchors.first else anchors.second
-                            activeHandle = handle
-                            activeHandleTip = anchor
-                            handleTouchOffset = position - anchor
-                            anchorWord = null
+                            textSelectionState.beginHandleDrag(handle, position, anchors)
                             onSelectingChanged(true)
                             true
                         } else {
@@ -442,13 +353,10 @@ internal fun ReaderPage(
                         }
                     },
                     onHandleDrag = { position ->
-                        val tip = position - handleTouchOffset
-                        activeHandleTip = tip
-                        dragSelectionHandle(tip)
+                        textSelectionState.dragHandle(pageText, position, ::toPagePoint)
                     },
                     onHandleEnd = {
-                        activeHandle = null
-                        activeHandleTip = null
+                        textSelectionState.endHandleDrag()
                         onSelectingChanged(false)
                     },
                     onPageEdgeSwipe = onPageEdgeSwipe,
@@ -459,8 +367,8 @@ internal fun ReaderPage(
                         start = anchors.first,
                         end = anchors.second,
                         painter = handlePainter,
-                        activeHandle = activeHandle,
-                        activeTipPosition = activeHandleTip,
+                        activeHandle = textSelectionState.activeHandle,
+                        activeTipPosition = textSelectionState.activeTipPosition,
                     )
                 }
                 if (selection != null && selectionScreenBounds != null) {
@@ -473,11 +381,7 @@ internal fun ReaderPage(
                             }
                         },
                         onSelectAll = {
-                            val text = pageText
-                            if (text != null && text.chars.isNotEmpty()) {
-                                selectionRange = 0..text.chars.lastIndex
-                                anchorWord = null
-                            }
+                            pageText?.let(textSelectionState::selectAll)
                         },
                         onShare = {
                             val share =

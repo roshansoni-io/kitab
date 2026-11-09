@@ -1,8 +1,7 @@
-package io.github.roshansoni_io.kitab.reader.ui
+package io.github.roshansoni_io.kitab.selection
 
 import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
-import io.github.roshansoni_io.kitab.reader.PageText
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -134,7 +133,7 @@ private fun PageText.hasWordBoundary(
     return gap > maxOf(MIN_WORD_GAP_POINTS, typicalHeight * WORD_GAP_HEIGHT_RATIO)
 }
 
-private fun io.github.roshansoni_io.kitab.reader.PageChar.isWordSeparator(): Boolean = isWhitespace || text.isBlank()
+private fun PageChar.isWordSeparator(): Boolean = isWhitespace || text.isBlank()
 
 private fun RectF.distanceTo(point: Offset): Float = distanceTo(point.x, point.y)
 
@@ -172,8 +171,7 @@ fun PageText.selectionBetween(
 }
 
 /**
- * The word range spanning from the anchor word (the long-pressed word) to the
- * word under the drag position.
+ * The word range spanning from the anchor word to the word under the drag position.
  */
 fun PageText.wordSelectionRange(
     anchorWord: IntRange,

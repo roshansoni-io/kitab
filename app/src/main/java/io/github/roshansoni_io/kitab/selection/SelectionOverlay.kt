@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.reader.ui
+package io.github.roshansoni_io.kitab.selection
 
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
@@ -26,11 +26,10 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.invisibleToUser
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.R
-import io.github.roshansoni_io.kitab.reader.PageText
 import kotlin.math.min
 
 internal enum class SelectionHandle { Start, End }
@@ -50,7 +49,7 @@ fun SelectionOverlay(
         modifier =
             modifier
                 .fillMaxSize()
-                .semantics { invisibleToUser() },
+                .semantics { hideFromAccessibility() },
     ) {
         val pageWidth = pageSize.width()
         val pageHeight = pageSize.height()
@@ -106,15 +105,15 @@ internal fun SelectionHandles(
     start: Offset,
     end: Offset,
     painter: Painter,
+    modifier: Modifier = Modifier,
     activeHandle: SelectionHandle? = null,
     activeTipPosition: Offset? = null,
-    modifier: Modifier = Modifier,
 ) {
     Canvas(
         modifier =
             modifier
                 .fillMaxSize()
-                .semantics { invisibleToUser() },
+                .semantics { hideFromAccessibility() },
     ) {
         drawSelectionHandle(
             painter,

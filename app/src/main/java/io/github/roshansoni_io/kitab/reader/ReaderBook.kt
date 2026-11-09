@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.LruCache
 import androidx.core.os.trace
+import io.github.roshansoni_io.kitab.selection.PageText
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

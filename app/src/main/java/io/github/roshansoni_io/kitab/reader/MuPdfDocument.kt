@@ -9,6 +9,8 @@ import com.artifex.mupdf.fitz.Matrix
 import com.artifex.mupdf.fitz.Page
 import com.artifex.mupdf.fitz.RectI
 import com.artifex.mupdf.fitz.android.AndroidDrawDevice
+import io.github.roshansoni_io.kitab.selection.PageChar
+import io.github.roshansoni_io.kitab.selection.PageText
 import java.io.File
 import kotlin.math.ceil
 

@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.reader
+package io.github.roshansoni_io.kitab.selection
 
 import android.graphics.RectF
 
