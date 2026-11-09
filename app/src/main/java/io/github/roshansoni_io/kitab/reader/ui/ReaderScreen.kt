@@ -218,6 +218,12 @@ private fun ReaderContent(
                             }
                         }
                     },
+                    onPageEdgeSwipe = { direction ->
+                        val targetPage = pageIndex + direction
+                        if (targetPage in 0 until readerBook.pageCount) {
+                            scope.launch { pagerState.animateScrollToPage(targetPage) }
+                        }
+                    },
                 )
             }
             pendingLinkUri?.let { uri ->

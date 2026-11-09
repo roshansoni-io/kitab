@@ -3,14 +3,36 @@ package io.github.roshansoni_io.kitab.reader.ui
 import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
 import io.github.roshansoni_io.kitab.reader.PageText
+import kotlin.math.abs
 import kotlin.math.hypot
 
-/** A contiguous character selection on one page (page points). */
+/** A contiguous character selection on one page. */
 data class TextSelection(
-    val rects: List<RectF>,
-    val rectsByLine: List<List<RectF>>,
-    val text: String,
-)
+    val pageText: PageText,
+    val startIndex: Int,
+    val endIndex: Int,
+) {
+    val first: Int = minOf(startIndex, endIndex)
+    val last: Int = maxOf(startIndex, endIndex)
+
+    fun text(): String = pageText.textOf(first..last)
+
+    fun bounds(): RectF {
+        val firstRect = pageText.chars[first].rect
+        var left = firstRect.left
+        var top = firstRect.top
+        var right = firstRect.right
+        var bottom = firstRect.bottom
+        for (index in first + 1..last) {
+            val rect = pageText.chars[index].rect
+            left = minOf(left, rect.left)
+            top = minOf(top, rect.top)
+            right = maxOf(right, rect.right)
+            bottom = maxOf(bottom, rect.bottom)
+        }
+        return RectF(left, top, right, bottom)
+    }
+}
 
 /**
  * Finds the character at [point] (page points). When the point is outside all
@@ -22,31 +44,59 @@ fun PageText.charNear(
     maxDistance: Float = Float.MAX_VALUE,
 ): Int? {
     if (isEmpty) return null
-    chars.forEachIndexed { index, char ->
-        if (char.rect.contains(point.x, point.y) && !char.isWordSeparator()) return index
-    }
-    // PDF text extraction can give a space a wide hit box that overlaps the
-    // neighboring glyph. Prefer actual letters over whitespace in that case.
-    chars.forEachIndexed { index, char ->
-        if (char.rect.contains(point.x, point.y)) {
-            val neighbors = listOf(index - 1, index + 1).filter { it in chars.indices }
-            return neighbors
-                .filterNot { chars[it].isWordSeparator() }
-                .minByOrNull { chars[it].rect.distanceTo(point) }
-                ?: index
+    var lineIndex = -1
+    var nearestVerticalDistance = Float.MAX_VALUE
+    var nearestCenterDistance = Float.MAX_VALUE
+    var nearestBoundsDistance = Float.MAX_VALUE
+    lineBounds.forEachIndexed { index, bounds ->
+        val verticalDistance =
+            when {
+                point.y < bounds.top -> bounds.top - point.y
+                point.y > bounds.bottom -> point.y - bounds.bottom
+                else -> 0f
+            }
+        val centerDistance = abs(point.y - bounds.centerY())
+        val boundsDistance = bounds.distanceTo(point)
+        if (
+            verticalDistance < nearestVerticalDistance ||
+            (verticalDistance == nearestVerticalDistance && centerDistance < nearestCenterDistance) ||
+            (
+                verticalDistance == nearestVerticalDistance &&
+                    centerDistance == nearestCenterDistance &&
+                    boundsDistance < nearestBoundsDistance
+            )
+        ) {
+            lineIndex = index
+            nearestVerticalDistance = verticalDistance
+            nearestCenterDistance = centerDistance
+            nearestBoundsDistance = boundsDistance
         }
     }
-    var nearest = -1
+    if (lineIndex < 0) return null
+    val line = lineRanges[lineIndex]
+    var containingWhitespace: Int? = null
+    var nearestIndex = -1
     var nearestDistance = Float.MAX_VALUE
-    chars.forEachIndexed { index, char ->
-        if (char.isWordSeparator()) return@forEachIndexed
+    for (index in line) {
+        val char = chars[index]
         val distance = char.rect.distanceTo(point)
-        if (distance < nearestDistance) {
+        if (distance == 0f) {
+            if (!char.isWordSeparator()) return index
+            containingWhitespace = index
+        } else if (!char.isWordSeparator() && distance < nearestDistance) {
+            nearestIndex = index
             nearestDistance = distance
-            nearest = index
         }
     }
-    return nearest.takeIf { nearestDistance <= maxDistance }
+    if (containingWhitespace != null) {
+        val index = containingWhitespace
+        return listOf(index - 1, index + 1)
+            .filter { it in line }
+            .filterNot { chars[it].isWordSeparator() }
+            .minByOrNull { chars[it].rect.distanceTo(point) }
+            ?: index
+    }
+    return nearestIndex.takeIf { nearestDistance <= maxDistance }
 }
 
 /** Expands [index] to the whole word (non-whitespace run) containing it. */
@@ -115,15 +165,10 @@ fun PageText.selectionBetween(
     startIndex: Int,
     endIndex: Int,
 ): TextSelection {
-    if (isEmpty) return TextSelection(rects = emptyList(), rectsByLine = emptyList(), text = "")
-    val first = minOf(startIndex, endIndex).coerceIn(0, chars.lastIndex)
-    val last = maxOf(startIndex, endIndex).coerceIn(0, chars.lastIndex)
-    val range = first..last
-    return TextSelection(
-        rects = range.map { chars[it].rect },
-        rectsByLine = range.groupBy { chars[it].lineIndex }.values.map { line -> line.map { chars[it].rect } },
-        text = textOf(range),
-    )
+    require(!isEmpty) { "Cannot select characters from an empty page" }
+    val first = startIndex.coerceIn(0, chars.lastIndex)
+    val last = endIndex.coerceIn(0, chars.lastIndex)
+    return TextSelection(this, first, last)
 }
 
 /**

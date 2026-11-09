@@ -39,15 +39,18 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.reader.LinkTarget
 import io.github.roshansoni_io.kitab.reader.PageText
 import io.github.roshansoni_io.kitab.reader.ReaderBook
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -59,6 +62,7 @@ internal fun ReaderPage(
     onZoomChanged: (Boolean) -> Unit,
     onSelectingChanged: (Boolean) -> Unit,
     onLinkTapped: (LinkTarget) -> Unit,
+    onPageEdgeSwipe: (Int) -> Unit,
 ) {
     val pageWidthPx = viewportSize().width
     var pageBitmap by remember(pageIndex, pageWidthPx) { mutableStateOf<Bitmap?>(null) }
@@ -70,17 +74,17 @@ internal fun ReaderPage(
     var linkTargets by remember(pageIndex) { mutableStateOf<List<LinkTarget>>(emptyList()) }
     var pageText by remember(pageIndex) { mutableStateOf<PageText?>(null) }
     var pageTextLoadFailed by remember(pageIndex) { mutableStateOf(false) }
-    var selectionStart by remember(pageIndex) { mutableStateOf<Int?>(null) }
-    var selectionEnd by remember(pageIndex) { mutableStateOf<Int?>(null) }
+    var selectionRange by remember(pageIndex) { mutableStateOf<IntRange?>(null) }
     var anchorWord by remember(pageIndex) { mutableStateOf<IntRange?>(null) }
     var activeHandle by remember(pageIndex) { mutableStateOf<SelectionHandle?>(null) }
+    var activeHandleTip by remember(pageIndex) { mutableStateOf<Offset?>(null) }
+    var handleTouchOffset by remember(pageIndex) { mutableStateOf(Offset.Zero) }
     val selection =
-        remember(selectionStart, selectionEnd, pageText) {
+        remember(selectionRange, pageText) {
+            val range = selectionRange
             val text = pageText
-            val start = selectionStart
-            val end = selectionEnd
-            if (text != null && start != null && end != null) {
-                text.selectionBetween(start, end)
+            if (text != null && range != null && !text.isEmpty) {
+                text.selectionBetween(range.first, range.last)
             } else {
                 null
             }
@@ -90,7 +94,10 @@ internal fun ReaderPage(
     val context = LocalContext.current
     val density = LocalDensity.current
     val touchSlopPx = remember(context) { ViewConfiguration.get(context).scaledTouchSlop.toFloat() }
-    val handleTouchRadiusPx = with(density) { 24.dp.toPx() }
+    val handlePainter = painterResource(R.drawable.selection_handle)
+    val handleWidthPx = with(density) { SELECTION_HANDLE_WIDTH.toPx() }
+    val handleHeightPx = with(density) { SELECTION_HANDLE_HEIGHT.toPx() }
+    val handleTouchSlopPx = with(density) { 16.dp.toPx() }
 
     LaunchedEffect(pageIndex) {
         try {
@@ -145,16 +152,17 @@ internal fun ReaderPage(
     }
 
     fun clearSelection() {
-        selectionStart = null
-        selectionEnd = null
+        selectionRange = null
         anchorWord = null
         activeHandle = null
+        activeHandleTip = null
     }
 
     fun handleAnchors(): Pair<Offset, Offset>? {
         val text = pageText ?: return null
-        val start = selectionStart ?: return null
-        val end = selectionEnd ?: return null
+        val range = selectionRange ?: return null
+        val start = range.first
+        val end = range.last
         val startRect = text.chars.getOrNull(start)?.rect ?: return null
         val endRect = text.chars.getOrNull(end.coerceAtLeast(start))?.rect ?: return null
 
@@ -165,12 +173,34 @@ internal fun ReaderPage(
 
     fun handleAt(position: Offset): SelectionHandle? {
         val (start, end) = handleAnchors() ?: return null
-        val toStart = (position - start).getDistance()
-        val toEnd = (position - end).getDistance()
+
+        fun contains(anchor: Offset): Boolean =
+            abs(position.x - anchor.x) <= handleWidthPx / 2f + handleTouchSlopPx &&
+                position.y >= anchor.y - handleTouchSlopPx &&
+                position.y <= anchor.y + handleHeightPx + handleTouchSlopPx
+
+        val hitsStart = contains(start)
+        val hitsEnd = contains(end)
         return when {
-            toStart <= handleTouchRadiusPx && toStart <= toEnd -> SelectionHandle.Start
-            toEnd <= handleTouchRadiusPx -> SelectionHandle.End
-            else -> null
+            hitsStart && hitsEnd -> {
+                if ((position - start).getDistance() <= (position - end).getDistance()) {
+                    SelectionHandle.Start
+                } else {
+                    SelectionHandle.End
+                }
+            }
+
+            hitsStart -> {
+                SelectionHandle.Start
+            }
+
+            hitsEnd -> {
+                SelectionHandle.End
+            }
+
+            else -> {
+                null
+            }
         }
     }
 
@@ -183,24 +213,24 @@ internal fun ReaderPage(
                 ?: return
         when (handle) {
             SelectionHandle.Start -> {
-                val end = selectionEnd ?: return
+                val range = selectionRange ?: return
+                val end = range.last
                 if (index >= end) {
-                    selectionStart = end
-                    selectionEnd = index
+                    selectionRange = end..index
                     activeHandle = SelectionHandle.End
                 } else {
-                    selectionStart = index
+                    selectionRange = index..end
                 }
             }
 
             SelectionHandle.End -> {
-                val start = selectionStart ?: return
+                val range = selectionRange ?: return
+                val start = range.first
                 if (index <= start) {
-                    selectionEnd = start
-                    selectionStart = index
+                    selectionRange = index..start
                     activeHandle = SelectionHandle.Start
                 } else {
-                    selectionEnd = index
+                    selectionRange = start..index
                 }
             }
         }
@@ -291,20 +321,7 @@ internal fun ReaderPage(
         }
 
         else -> {
-            val selectionPageBounds =
-                remember(selection) {
-                    selection
-                        ?.rects
-                        ?.takeIf { it.isNotEmpty() }
-                        ?.let { rects ->
-                            RectF(
-                                rects.minOf { it.left },
-                                rects.minOf { it.top },
-                                rects.maxOf { it.right },
-                                rects.maxOf { it.bottom },
-                            )
-                        }
-                }
+            val selectionPageBounds = remember(selection) { selection?.bounds() }
             val selectionScreenBounds =
                 selectionPageBounds?.let { bounds ->
                     val topLeft = toScreen(Offset(bounds.left, bounds.top))
@@ -385,8 +402,7 @@ internal fun ReaderPage(
                         if (text != null && index != null) {
                             val word = text.wordRangeAt(index)
                             anchorWord = word
-                            selectionStart = word.first
-                            selectionEnd = word.last
+                            selectionRange = word
                             onSelectingChanged(true)
                             true
                         } else {
@@ -405,16 +421,19 @@ internal fun ReaderPage(
                             val focus = text.charNear(point)
                             if (focus != null) {
                                 val range = text.wordSelectionRange(anchor, focus)
-                                selectionStart = range.first
-                                selectionEnd = range.last
+                                selectionRange = range
                             }
                         }
                     },
                     onSelectionEnd = { onSelectingChanged(false) },
                     onHandleHit = { position ->
                         val handle = handleAt(position)
-                        if (handle != null) {
+                        val anchors = handleAnchors()
+                        if (handle != null && anchors != null) {
+                            val anchor = if (handle == SelectionHandle.Start) anchors.first else anchors.second
                             activeHandle = handle
+                            activeHandleTip = anchor
+                            handleTouchOffset = position - anchor
                             anchorWord = null
                             onSelectingChanged(true)
                             true
@@ -422,17 +441,26 @@ internal fun ReaderPage(
                             false
                         }
                     },
-                    onHandleDrag = { position -> dragSelectionHandle(position) },
+                    onHandleDrag = { position ->
+                        val tip = position - handleTouchOffset
+                        activeHandleTip = tip
+                        dragSelectionHandle(tip)
+                    },
                     onHandleEnd = {
                         activeHandle = null
+                        activeHandleTip = null
                         onSelectingChanged(false)
                     },
+                    onPageEdgeSwipe = onPageEdgeSwipe,
                 )
                 val anchors = handleAnchors()
                 if (selection != null && anchors != null) {
                     SelectionHandles(
                         start = anchors.first,
                         end = anchors.second,
+                        painter = handlePainter,
+                        activeHandle = activeHandle,
+                        activeTipPosition = activeHandleTip,
                     )
                 }
                 if (selection != null && selectionScreenBounds != null) {
@@ -440,15 +468,14 @@ internal fun ReaderPage(
                         onCopy = {
                             scope.launch {
                                 clipboard.setClipEntry(
-                                    ClipEntry(ClipData.newPlainText("Kitab", selection.text)),
+                                    ClipEntry(ClipData.newPlainText("Kitab", selection.text())),
                                 )
                             }
                         },
                         onSelectAll = {
                             val text = pageText
                             if (text != null && text.chars.isNotEmpty()) {
-                                selectionStart = 0
-                                selectionEnd = text.chars.lastIndex
+                                selectionRange = 0..text.chars.lastIndex
                                 anchorWord = null
                             }
                         },
@@ -456,7 +483,7 @@ internal fun ReaderPage(
                             val share =
                                 Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, selection.text)
+                                    putExtra(Intent.EXTRA_TEXT, selection.text())
                                 }
                             context.startActivity(
                                 Intent
@@ -492,6 +519,7 @@ private fun ZoomedPageImage(
     onHandleHit: (Offset) -> Boolean,
     onHandleDrag: (Offset) -> Unit,
     onHandleEnd: () -> Unit,
+    onPageEdgeSwipe: (Int) -> Unit,
 ) {
     val density = LocalDensity.current
     Box(
@@ -523,6 +551,7 @@ private fun ZoomedPageImage(
                         onHandleHit = onHandleHit,
                         onHandleDrag = onHandleDrag,
                         onHandleEnd = onHandleEnd,
+                        onPageEdgeSwipe = onPageEdgeSwipe,
                     ).graphicsLayer {
                         scaleX = zoomState.scale
                         scaleY = zoomState.scale
@@ -559,7 +588,9 @@ private fun ZoomedPageImage(
             val points = pageSize
             if (selection != null && points != null) {
                 SelectionOverlay(
-                    rectsByLine = selection.rectsByLine,
+                    pageText = selection.pageText,
+                    startIndex = selection.first,
+                    endIndex = selection.last,
                     pageSize = points,
                 )
             }

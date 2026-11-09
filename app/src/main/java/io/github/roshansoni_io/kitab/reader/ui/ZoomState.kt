@@ -14,6 +14,7 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.abs
 import kotlin.math.hypot
 
 class ZoomState(
@@ -50,10 +51,13 @@ class ZoomState(
         clampOffsets()
     }
 
-    fun panBy(pan: Offset) {
+    fun panBy(pan: Offset): Offset {
+        val previousX = offsetX
+        val previousY = offsetY
         offsetX += pan.x
         offsetY += pan.y
         clampOffsets()
+        return Offset(pan.x - (offsetX - previousX), pan.y - (offsetY - previousY))
     }
 
     fun settle() {
@@ -115,6 +119,7 @@ fun Modifier.zoomable(
     onHandleHit: (Offset) -> Boolean = { false },
     onHandleDrag: (Offset) -> Unit = {},
     onHandleEnd: () -> Unit = {},
+    onPageEdgeSwipe: (Int) -> Unit = {},
 ): Modifier {
     // A pointerInput coroutine can outlive several recompositions. Keep the
     // callbacks current so a gesture started before page text loads does not
@@ -128,6 +133,7 @@ fun Modifier.zoomable(
     val currentOnHandleHit by rememberUpdatedState(onHandleHit)
     val currentOnHandleDrag by rememberUpdatedState(onHandleDrag)
     val currentOnHandleEnd by rememberUpdatedState(onHandleEnd)
+    val currentOnPageEdgeSwipe by rememberUpdatedState(onPageEdgeSwipe)
 
     return pointerInput(state) {
         awaitEachGesture {
@@ -140,6 +146,8 @@ fun Modifier.zoomable(
             var releasedPosition: Offset? = null
             var selecting = false
             var longPressFired = false
+            var edgeSwipeDistance = 0f
+            var pageSwipeSent = false
             var lastPosition: Offset
 
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -231,8 +239,17 @@ fun Modifier.zoomable(
                         }
 
                         state.isZoomed && pressed.size == 1 -> {
-                            state.panBy(pan)
+                            val unconsumed = state.panBy(pan)
                             consuming = true
+                            if (abs(unconsumed.x) > 0f) {
+                                edgeSwipeDistance += unconsumed.x
+                                if (!pageSwipeSent && abs(edgeSwipeDistance) >= viewConfiguration.touchSlop * 2f) {
+                                    currentOnPageEdgeSwipe(if (edgeSwipeDistance < 0f) 1 else -1)
+                                    pageSwipeSent = true
+                                }
+                            } else {
+                                edgeSwipeDistance = 0f
+                            }
                         }
                     }
                 }
