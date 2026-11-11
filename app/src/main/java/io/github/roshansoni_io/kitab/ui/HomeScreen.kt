@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.home
+package io.github.roshansoni_io.kitab.ui
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,8 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.book.Book
-import io.github.roshansoni_io.kitab.book.BookRepository
+import io.github.roshansoni_io.kitab.data.Book
+import io.github.roshansoni_io.kitab.data.BookRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

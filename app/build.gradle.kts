@@ -27,6 +27,12 @@ android {
         versionName = "1.0"
     }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     signingConfigs {
         create("release") {
             val configuredStoreFile = releaseKeystoreProperties.getProperty("storeFile")
@@ -129,4 +135,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.robolectric)
 }

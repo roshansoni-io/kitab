@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.selection
+package io.github.roshansoni_io.kitab.selection.ui
 
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
@@ -30,9 +30,9 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.R
+import io.github.roshansoni_io.kitab.selection.PageText
+import io.github.roshansoni_io.kitab.selection.SelectionHandle
 import kotlin.math.min
-
-internal enum class SelectionHandle { Start, End }
 
 internal val SELECTION_HANDLE_WIDTH = 40.dp
 internal val SELECTION_HANDLE_HEIGHT = 56.dp

@@ -15,10 +15,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import io.github.roshansoni_io.kitab.book.Book
-import io.github.roshansoni_io.kitab.book.BookRepository
-import io.github.roshansoni_io.kitab.home.HomeScreen
+import io.github.roshansoni_io.kitab.data.Book
+import io.github.roshansoni_io.kitab.data.BookRepository
 import io.github.roshansoni_io.kitab.reader.ui.ReaderScreen
+import io.github.roshansoni_io.kitab.ui.HomeScreen
 import io.github.roshansoni_io.kitab.ui.theme.KitabTheme
 import kotlinx.coroutines.launch
 

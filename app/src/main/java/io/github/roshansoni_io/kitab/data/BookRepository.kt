@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.book
+package io.github.roshansoni_io.kitab.data
 
 import android.content.Context
 import android.net.Uri

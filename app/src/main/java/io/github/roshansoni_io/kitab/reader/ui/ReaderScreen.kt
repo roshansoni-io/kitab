@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.book.Book
+import io.github.roshansoni_io.kitab.data.Book
 import io.github.roshansoni_io.kitab.reader.DocumentOpenException
 import io.github.roshansoni_io.kitab.reader.ReaderBook
 import kotlinx.coroutines.CancellationException

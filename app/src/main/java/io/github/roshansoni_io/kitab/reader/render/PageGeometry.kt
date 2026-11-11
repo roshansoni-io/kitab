@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.reader.ui
+package io.github.roshansoni_io.kitab.reader.render
 
 import android.graphics.Bitmap
 import android.graphics.RectF
