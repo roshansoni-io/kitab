@@ -59,7 +59,6 @@ import io.github.roshansoni_io.kitab.selection.TextSelectionState
 import io.github.roshansoni_io.kitab.selection.charNear
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -68,10 +67,14 @@ internal fun ReaderPage(
     pageIndex: Int,
     viewportSize: () -> IntSize,
     backgroundColor: Color,
+    zoomCarry: ZoomCarry?,
+    onZoomCarryConsumed: () -> Unit,
+    onZoomStateRegistered: (ZoomState?) -> Unit,
+    onPageEdgeSwipe: (Int) -> Unit,
     onZoomChanged: (Boolean) -> Unit,
     onSelectingChanged: (Boolean) -> Unit,
     onLinkTapped: (LinkTarget) -> Unit,
-    onPageEdgeSwipe: (Int) -> Unit,
+    onPlainTap: () -> Unit,
 ) {
     val pageWidthPx = viewportSize().width
     var pageBitmap by remember(pageIndex, pageWidthPx) { mutableStateOf<Bitmap?>(null) }
@@ -121,12 +124,13 @@ internal fun ReaderPage(
                 viewportSize = viewportSize,
                 contentSize = {
                     val bitmap = pageBitmap
-                    if (bitmap == null || pageWidthPx <= 0) {
+                    val viewport = viewportSize()
+                    if (bitmap == null || viewport == IntSize.Zero) {
                         IntSize.Zero
                     } else {
                         PageGeometry.fittedSize(
                             bitmap = bitmap,
-                            viewport = viewportSize(),
+                            viewport = viewport,
                         )
                     }
                 },
@@ -166,6 +170,20 @@ internal fun ReaderPage(
                 renderFailed = true
             }
         }
+    }
+
+    LaunchedEffect(zoomCarry, pageBitmap, renderFailed) {
+        val carry = zoomCarry ?: return@LaunchedEffect
+        if (carry.targetPage != pageIndex) return@LaunchedEffect
+        // Anchor only once the content size is known; the effect re-runs when the
+        // bitmap arrives, so the carried pan is never produced against unknown
+        // content (which would silently drop it to the centered default).
+        if (pageBitmap == null && !renderFailed) return@LaunchedEffect
+        val failed = renderFailed
+        onZoomCarryConsumed()
+        if (failed) return@LaunchedEffect
+        zoomState.anchorTo(carry.scale, carry.anchorStart)
+        zoomSettleTick++
     }
 
     LaunchedEffect(zoomSettleTick) {
@@ -217,12 +235,23 @@ internal fun ReaderPage(
         }
     }
 
+    LaunchedEffect(pageSize, pageBitmap) {
+        if (pageSize != null && pageBitmap != null && zoomState.isZoomed) {
+            zoomSettleTick++
+        }
+    }
+
     LaunchedEffect(zoomState) {
         snapshotFlow { zoomState.isZoomed }.collect { isZoomed -> onZoomChanged(isZoomed) }
     }
 
     DisposableEffect(pageIndex) {
         onDispose { onZoomChanged(false) }
+    }
+
+    DisposableEffect(pageIndex, zoomState) {
+        onZoomStateRegistered(zoomState)
+        onDispose { onZoomStateRegistered(null) }
     }
 
     val bitmap = pageBitmap
@@ -283,16 +312,24 @@ internal fun ReaderPage(
                     selection = selection,
                     pageSize = pageSize,
                     onGestureEnd = { zoomSettleTick++ },
+                    onPageEdgeSwipe = onPageEdgeSwipe,
                     onTap = { tapPoint ->
                         if (selection != null) {
                             clearSelection()
                         } else {
                             val points = pageSize
                             val pagePoint = toPagePoint(tapPoint)
-                            if (points != null && pagePoint != null) {
-                                val mapper = PageMapper(points, viewportSize())
-                                val hit = mapper.hitTest(linkTargets, pagePoint, touchSlopPx)
-                                hit?.let(onLinkTapped)
+                            val hit =
+                                if (points != null && pagePoint != null) {
+                                    val mapper = PageMapper(points, viewportSize())
+                                    mapper.hitTest(linkTargets, pagePoint, touchSlopPx)
+                                } else {
+                                    null
+                                }
+                            if (hit != null) {
+                                onLinkTapped(hit)
+                            } else {
+                                onPlainTap()
                             }
                         }
                     },
@@ -359,7 +396,6 @@ internal fun ReaderPage(
                         textSelectionState.endHandleDrag()
                         onSelectingChanged(false)
                     },
-                    onPageEdgeSwipe = onPageEdgeSwipe,
                 )
                 val anchors = handleAnchors()
                 if (selection != null && anchors != null) {
@@ -416,6 +452,7 @@ private fun ZoomedPageImage(
     selection: TextSelection?,
     pageSize: RectF?,
     onGestureEnd: () -> Unit,
+    onPageEdgeSwipe: (Int) -> Unit,
     onTap: (Offset) -> Unit,
     onLongPress: (Offset) -> Boolean,
     onSelectionDrag: (Offset) -> Unit,
@@ -423,7 +460,6 @@ private fun ZoomedPageImage(
     onHandleHit: (Offset) -> Boolean,
     onHandleDrag: (Offset) -> Unit,
     onHandleEnd: () -> Unit,
-    onPageEdgeSwipe: (Int) -> Unit,
 ) {
     val density = LocalDensity.current
     Box(
@@ -440,22 +476,14 @@ private fun ZoomedPageImage(
                     .zoomable(
                         state = zoomState,
                         onTap = onTap,
-                        onDoubleTap = { tapPoint ->
-                            if (zoomState.isZoomed) {
-                                zoomState.reset()
-                            } else {
-                                zoomState.zoomBy(DOUBLE_TAP_ZOOM_FACTOR, tapPoint)
-                            }
-                            onGestureEnd()
-                        },
                         onGestureEnd = onGestureEnd,
+                        onPageEdgeSwipe = onPageEdgeSwipe,
                         onLongPress = onLongPress,
                         onSelectionDrag = onSelectionDrag,
                         onSelectionEnd = onSelectionEnd,
                         onHandleHit = onHandleHit,
                         onHandleDrag = onHandleDrag,
                         onHandleEnd = onHandleEnd,
-                        onPageEdgeSwipe = onPageEdgeSwipe,
                     ).graphicsLayer {
                         scaleX = zoomState.scale
                         scaleY = zoomState.scale
@@ -524,5 +552,4 @@ private fun ReaderPageError() {
     }
 }
 
-private const val DOUBLE_TAP_ZOOM_FACTOR = 2.5f
 private const val LONG_PRESS_SLOP_POINTS = 30f

@@ -10,7 +10,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
@@ -68,6 +67,32 @@ class ZoomState(
         }
     }
 
+    /**
+     * Jumps to [newScale] anchored at a page boundary so a flipped-in page keeps the
+     * reading position: [anchorStart] pins the top-left corner of the content on
+     * screen, otherwise the bottom-left corner is pinned. Offsets fall back to zero
+     * while the content size is not yet known from a rendered bitmap.
+     */
+    fun anchorTo(
+        newScale: Float,
+        anchorStart: Boolean,
+    ) {
+        scale = newScale.coerceIn(MIN_SCALE, MAX_SCALE)
+        val content = contentSize()
+        val viewport = viewportSize()
+        if (content == IntSize.Zero || viewport == IntSize.Zero) {
+            offsetX = 0f
+            offsetY = 0f
+            return
+        }
+        val maxOffsetX = maxOf(0f, content.width * scale / 2f - viewport.width / 2f)
+        val maxOffsetY = maxOf(0f, content.height * scale / 2f - viewport.height / 2f)
+        // A positive translation moves the content right/down, which reveals its
+        // left/top portion; the clamped maximum is exactly the edge-anchored offset.
+        offsetX = maxOffsetX
+        offsetY = if (anchorStart) maxOffsetY else -maxOffsetY
+    }
+
     private fun viewportCenter(): Offset = viewportSize().let { Offset(it.width / 2f, it.height / 2f) }
 
     /**
@@ -111,29 +136,27 @@ class ZoomState(
 fun Modifier.zoomable(
     state: ZoomState,
     onTap: (Offset) -> Unit = {},
-    onDoubleTap: (Offset) -> Unit = {},
     onGestureEnd: () -> Unit = {},
+    onPageEdgeSwipe: (Int) -> Unit = {},
     onLongPress: (Offset) -> Boolean = { false },
     onSelectionDrag: (Offset) -> Unit = {},
     onSelectionEnd: () -> Unit = {},
     onHandleHit: (Offset) -> Boolean = { false },
     onHandleDrag: (Offset) -> Unit = {},
     onHandleEnd: () -> Unit = {},
-    onPageEdgeSwipe: (Int) -> Unit = {},
 ): Modifier {
     // A pointerInput coroutine can outlive several recompositions. Keep the
     // callbacks current so a gesture started before page text loads does not
     // keep using the initial (empty) pageText captured by its closure.
     val currentOnTap by rememberUpdatedState(onTap)
-    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
     val currentOnGestureEnd by rememberUpdatedState(onGestureEnd)
+    val currentOnPageEdgeSwipe by rememberUpdatedState(onPageEdgeSwipe)
     val currentOnLongPress by rememberUpdatedState(onLongPress)
     val currentOnSelectionDrag by rememberUpdatedState(onSelectionDrag)
     val currentOnSelectionEnd by rememberUpdatedState(onSelectionEnd)
     val currentOnHandleHit by rememberUpdatedState(onHandleHit)
     val currentOnHandleDrag by rememberUpdatedState(onHandleDrag)
     val currentOnHandleEnd by rememberUpdatedState(onHandleEnd)
-    val currentOnPageEdgeSwipe by rememberUpdatedState(onPageEdgeSwipe)
 
     return pointerInput(state) {
         awaitEachGesture {
@@ -241,14 +264,15 @@ fun Modifier.zoomable(
                         state.isZoomed && pressed.size == 1 -> {
                             val unconsumed = state.panBy(pan)
                             consuming = true
-                            if (abs(unconsumed.x) > 0f) {
-                                edgeSwipeDistance += unconsumed.x
-                                if (!pageSwipeSent && abs(edgeSwipeDistance) >= viewConfiguration.touchSlop * 2f) {
-                                    currentOnPageEdgeSwipe(if (edgeSwipeDistance < 0f) 1 else -1)
-                                    pageSwipeSent = true
-                                }
-                            } else {
-                                edgeSwipeDistance = 0f
+                            // Pan is clamped at the content edge; whatever the
+                            // clamp refuses keeps accumulating until it releases
+                            // the pager to flip in the neighbouring page.
+                            edgeSwipeDistance += unconsumed.x
+                            if (!pageSwipeSent &&
+                                abs(edgeSwipeDistance) >= viewConfiguration.touchSlop * 2f
+                            ) {
+                                pageSwipeSent = true
+                                currentOnPageEdgeSwipe(if (edgeSwipeDistance < 0f) 1 else -1)
                             }
                         }
                     }
@@ -272,11 +296,7 @@ fun Modifier.zoomable(
                     releasedPosition != null
 
             if (isTap) {
-                maybeDetectDoubleTap(
-                    releasedPosition ?: Offset.Zero,
-                    { point -> currentOnTap(point) },
-                    { point -> currentOnDoubleTap(point) },
-                )
+                currentOnTap(releasedPosition ?: Offset.Zero)
             }
         }
     }
@@ -295,44 +315,9 @@ private fun pressedSpan(pressed: List<PointerInputChange>): Float {
     return hypot(first.x - last.x, first.y - last.y)
 }
 
-private suspend fun AwaitPointerEventScope.maybeDetectDoubleTap(
-    firstTapPoint: Offset,
-    onTap: (Offset) -> Unit,
-    onDoubleTap: (Offset) -> Unit,
-) {
-    val secondDown =
-        withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
-            awaitFirstDown(requireUnconsumed = false)
-        } ?: run {
-            onTap(firstTapPoint)
-            return
-        }
-
-    var secondMovement = 0f
-    var secondTapPoint: Offset? = secondDown.position
-    while (true) {
-        val event = awaitPointerEvent()
-        val pressed = event.changes.filter { it.pressed }
-        if (pressed.isEmpty()) {
-            secondTapPoint = event.changes.lastOrNull()?.position
-            break
-        }
-        val centroid = pressedCentroid(pressed)
-        secondTapPoint?.let { previous -> secondMovement += (centroid - previous).getDistance() }
-        secondTapPoint = centroid
-    }
-
-    val secondTap = secondTapPoint
-    val isDoubleTap =
-        secondTap != null &&
-            secondMovement <= viewConfiguration.touchSlop &&
-            hypot(secondTap.x - firstTapPoint.x, secondTap.y - firstTapPoint.y) <= DOUBLE_TAP_SLACK_PX
-
-    if (isDoubleTap) {
-        onDoubleTap(secondTap)
-    } else {
-        onTap(firstTapPoint)
-    }
-}
-
-private const val DOUBLE_TAP_SLACK_PX = 80f
+/** Zoom scale transferred from the page the user left when a zoomed edge-swipe flips. */
+data class ZoomCarry(
+    val targetPage: Int,
+    val scale: Float,
+    val anchorStart: Boolean,
+)

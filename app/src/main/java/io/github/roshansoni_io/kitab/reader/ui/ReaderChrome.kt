@@ -1,46 +1,49 @@
 package io.github.roshansoni_io.kitab.reader.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -50,22 +53,39 @@ internal fun ReaderScaffold(
     bookTitle: String,
     onBack: () -> Unit,
     bottomBar: @Composable () -> Unit,
-    content: @Composable (PaddingValues) -> Unit,
+    chromeVisible: Boolean,
+    content: @Composable () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        content()
+
+        AnimatedVisibility(
+            visible = chromeVisible,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
             TopAppBar(
                 title = { Text(text = bookTitle, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
                     }
                 },
             )
-        },
-        bottomBar = bottomBar,
-    ) { innerPadding ->
-        content(innerPadding)
+        }
+
+        AnimatedVisibility(
+            visible = chromeVisible,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            bottomBar()
+        }
     }
 }
 
@@ -76,40 +96,67 @@ internal fun ReaderBottomBar(
     pageCount: Int,
 ) {
     if (pageCount < 2) return
-    var draggingValue by remember { mutableStateOf<Float?>(null) }
-    var isDragging by remember { mutableStateOf(false) }
-    val currentPage = pagerState.currentPage
-    val displayValue = draggingValue ?: currentPage.toFloat()
 
-    // Colors matching your design
-    val activeTrackColor = Color(0xFFFFCC80) // Light orange
-    val inactiveTrackColor = Color(0xFF4E342E) // Dark brown
-    val thumbLineColor = Color(0xFFFFB74D) // Orange line
-    val haloColor = Color.Black.copy(alpha = 0.5f) // Dark semi-transparent halo
+    val scope = rememberCoroutineScope()
+
+    // Using MaterialTheme surface color for the background
+    // If you want it to match the peach image exactly, replace with Color(0xFFF8DEC5)
+    val backgroundColor = MaterialTheme.colorScheme.surface
+
+    // Material Theme Colors for the Slider
+    val activeTrackColor = MaterialTheme.colorScheme.primary
+    val inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+
+    // Text and Icon colors
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .background(backgroundColor)
                 .navigationBarsPadding()
-                .padding(horizontal = ScreenPadding.medium, vertical = ScreenPadding.small),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(ScreenPadding.medium),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val displayedPage = displayValue.roundToInt().coerceIn(0, pageCount - 1)
-        Text(
-            text = String.format(Locale.US, "%d / %d", displayedPage + 1, pageCount),
-            style = MaterialTheme.typography.labelLarge,
-        )
-
-        Slider(
-            value = displayValue,
-            onValueChange = { value ->
-                isDragging = true
-                draggingValue = value
+        // --- PREVIOUS PAGE BUTTON ---
+        IconButton(
+            onClick = {
+                scope.launch {
+                    pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
+                }
             },
-            onValueChangeFinished = { isDragging = false },
+            enabled = pagerState.currentPage > 0,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "Previous Page",
+                tint = if (pagerState.currentPage > 0) contentColor else contentColor.copy(alpha = 0.3f),
+            )
+        }
+
+        // --- CUSTOM SLIDER ---
+        // While dragging, hold the thumb under the finger locally; committing to
+        // pagerState.currentPage on every change would snap it between settled
+        // pages and spawn a coroutine per drag tick.
+        var isDraggingSlider by remember { mutableStateOf(false) }
+        var sliderDragValue by remember { mutableFloatStateOf(0f) }
+        Slider(
+            value = if (isDraggingSlider) sliderDragValue else pagerState.currentPage.toFloat(),
+            onValueChange = { value ->
+                isDraggingSlider = true
+                sliderDragValue = value
+            },
+            onValueChangeFinished = {
+                isDraggingSlider = false
+                scope.launch {
+                    pagerState.scrollToPage(sliderDragValue.roundToInt().coerceIn(0, pageCount - 1))
+                }
+            },
             valueRange = 0f..(pageCount - 1).toFloat(),
+            modifier = Modifier.weight(1f),
+            // Custom Track
             track = { sliderState ->
                 val fraction =
                     if (pageCount > 1) {
@@ -122,89 +169,56 @@ internal fun ReaderBottomBar(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(24.dp) // Now correctly resolved
-                            .clip(RoundedCornerShape(50)),
+                            .height(4.dp) // Thin track
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(inactiveTrackColor),
                 ) {
-                    // Background (unfilled) track
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .background(inactiveTrackColor),
-                    )
-
-                    // Active (filled) track
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth(fraction)
                                 .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.dp))
                                 .background(activeTrackColor),
                     )
-
-                    // Tiny white dot on the right
-                    Box(
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 12.dp)
-                                .size(4.dp)
-                                .background(Color.White, CircleShape),
-                    )
                 }
             },
+            // Custom Thumb
             thumb = {
                 Box(
-                    modifier = Modifier.wrapContentSize(unbounded = true),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // Dark background halo
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(48.dp)
-                                .background(haloColor, CircleShape),
-                    )
-
-                    // Vertical line handle
-                    Box(
-                        modifier =
-                            Modifier
-                                .width(4.dp) // Now correctly resolved
-                                .height(36.dp) // Now correctly resolved
-                                .background(thumbLineColor, RoundedCornerShape(2.dp)),
-                    )
-
-                    // Top Number Bubble
-                    Box(
-                        modifier =
-                            Modifier
-                                .offset(y = (-38).dp)
-                                .size(32.dp)
-                                .background(Color.White, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = (displayValue.roundToInt() + 1).toString(),
-                            color = Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
+                    modifier =
+                        Modifier
+                            .size(24.dp)
+                            .shadow(elevation = 6.dp, shape = CircleShape)
+                            .background(activeTrackColor, CircleShape)
+                            .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape),
+                )
             },
         )
-    }
 
-    LaunchedEffect(draggingValue, isDragging) {
-        val value = draggingValue
-        if (value != null) {
-            val targetPage = value.roundToInt().coerceIn(0, pageCount - 1)
-            if (targetPage != pagerState.currentPage) {
-                pagerState.scrollToPage(targetPage)
-            }
+        // --- PAGE COUNTER TEXT ---
+        Text(
+            text = String.format(Locale.US, "%d/%d", pagerState.currentPage + 1, pageCount),
+            style = MaterialTheme.typography.titleMedium,
+            color = contentColor,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+
+        // --- NEXT PAGE BUTTON ---
+        IconButton(
+            onClick = {
+                scope.launch {
+                    pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(pageCount - 1))
+                }
+            },
+            enabled = pagerState.currentPage < pageCount - 1,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Next Page",
+                tint = if (pagerState.currentPage < pageCount - 1) contentColor else contentColor.copy(alpha = 0.3f),
+            )
         }
-        if (!isDragging) draggingValue = null
     }
 }
 

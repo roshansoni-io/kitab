@@ -42,7 +42,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.book.Book
 import io.github.roshansoni_io.kitab.book.BookRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,9 +57,11 @@ fun HomeScreen(
     var importFailedDialogVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
-        recents = repository.recentBooks()
+        recents = withContext(Dispatchers.IO) { repository.recentBooks() }
     }
-    val refreshRecents: () -> Unit = { recents = repository.recentBooks() }
+    val refreshRecents: () -> Unit = {
+        scope.launch { recents = withContext(Dispatchers.IO) { repository.recentBooks() } }
+    }
     val documentPicker =
         rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument(),
@@ -90,8 +94,8 @@ fun HomeScreen(
                 onOpenBook = onOpenBook,
                 onRemoveBook = { removed ->
                     scope.launch {
-                        repository.removeRecent(removed.uri)
-                        recents = repository.recentBooks()
+                        withContext(Dispatchers.IO) { repository.removeRecent(removed.uri) }
+                        recents = withContext(Dispatchers.IO) { repository.recentBooks() }
                     }
                 },
             )
