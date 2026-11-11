@@ -7,9 +7,13 @@ import androidx.core.os.trace
 import io.github.roshansoni_io.kitab.selection.PageText
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
@@ -23,6 +27,11 @@ class ReaderBook private constructor(
     private val closed = AtomicBoolean(false)
 
     private val pageCache = PageBitmapCache(maxBytes = DEFAULT_CACHE_BYTES)
+
+    // Renders requested while an identical render is in flight await it instead of
+    // queueing a duplicate native render behind it on the serialized dispatcher.
+    private val renderMutex = Mutex()
+    private val inFlightRenders = mutableMapOf<PageCacheKey, Deferred<Bitmap>>()
     private val pageTextCache =
         object : LinkedHashMap<Int, PageText>(8, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, PageText>): Boolean = size > MAX_CACHED_TEXT_PAGES
@@ -54,14 +63,26 @@ class ReaderBook private constructor(
         requireValidPage(pageIndex)
         val cacheKey = PageCacheKey(pageIndex, targetWidthPx, backgroundColor)
         pageCache.get(cacheKey)?.let { return it }
-        return withContext(renderDispatcher) {
-            ensureOpen()
-            pageCache.get(cacheKey)?.let { return@withContext it }
-            trace("Kitab.pageRender p$pageIndex w$targetWidthPx") {
-                document
-                    .renderPage(pageIndex, targetWidthPx, backgroundColor)
-                    .also { pageCache.put(cacheKey, it) }
+        val render =
+            renderMutex.withLock {
+                // Re-check under the lock: a concurrent caller may have completed
+                // the render and populated the cache while this caller queued up.
+                pageCache.get(cacheKey)?.let { return it }
+                inFlightRenders.getOrPut(cacheKey) {
+                    closeScope.async {
+                        ensureOpen()
+                        trace("Kitab.pageRender p$pageIndex w$targetWidthPx") {
+                            document
+                                .renderPage(pageIndex, targetWidthPx, backgroundColor)
+                                .also { pageCache.put(cacheKey, it) }
+                        }
+                    }
+                }
             }
+        try {
+            return render.await()
+        } finally {
+            renderMutex.withLock { inFlightRenders.remove(cacheKey, render) }
         }
     }
 
@@ -151,46 +172,6 @@ class ReaderBook private constructor(
                 document.close()
                 throw failure
             }
-        }
-    }
-}
-
-private data class PageCacheKey(
-    val pageIndex: Int,
-    val targetWidthPx: Int,
-    val backgroundColor: Int,
-)
-
-private class PageBitmapCache(
-    maxBytes: Long,
-) {
-    private val delegate =
-        object : LruCache<PageCacheKey, Bitmap>(cacheCapacity(maxBytes)) {
-            override fun sizeOf(
-                key: PageCacheKey,
-                value: Bitmap,
-            ): Int = value.byteCount.coerceAtLeast(1)
-        }
-
-    fun get(key: PageCacheKey): Bitmap? = delegate.get(key)
-
-    fun put(
-        key: PageCacheKey,
-        bitmap: Bitmap,
-    ) {
-        delegate.put(key, bitmap)
-    }
-
-    fun clear() {
-        delegate.evictAll()
-    }
-
-    private companion object {
-        fun cacheCapacity(maxBytes: Long): Int {
-            require(maxBytes in 1..Int.MAX_VALUE.toLong()) {
-                "Cache size $maxBytes out of range [1, ${Int.MAX_VALUE}]"
-            }
-            return maxBytes.toInt()
         }
     }
 }

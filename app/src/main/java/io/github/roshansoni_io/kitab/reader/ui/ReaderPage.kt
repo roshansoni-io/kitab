@@ -71,10 +71,7 @@ internal fun ReaderPage(
     pageIndex: Int,
     viewportSize: () -> IntSize,
     backgroundColor: Color,
-    zoomCarry: ZoomCarry?,
-    onZoomCarryConsumed: () -> Unit,
     onZoomStateRegistered: (ZoomState?) -> Unit,
-    onPageEdgeSwipe: (Int) -> Unit,
     onZoomChanged: (Boolean) -> Unit,
     onSelectingChanged: (Boolean) -> Unit,
     onLinkTapped: (LinkTarget) -> Unit,
@@ -174,20 +171,6 @@ internal fun ReaderPage(
                 renderFailed = true
             }
         }
-    }
-
-    LaunchedEffect(zoomCarry, pageBitmap, renderFailed) {
-        val carry = zoomCarry ?: return@LaunchedEffect
-        if (carry.targetPage != pageIndex) return@LaunchedEffect
-        // Anchor only once the content size is known; the effect re-runs when the
-        // bitmap arrives, so the carried pan is never produced against unknown
-        // content (which would silently drop it to the centered default).
-        if (pageBitmap == null && !renderFailed) return@LaunchedEffect
-        val failed = renderFailed
-        onZoomCarryConsumed()
-        if (failed) return@LaunchedEffect
-        zoomState.anchorTo(carry.scale, carry.anchorStart)
-        zoomSettleTick++
     }
 
     LaunchedEffect(zoomSettleTick) {
@@ -316,7 +299,6 @@ internal fun ReaderPage(
                     selection = selection,
                     pageSize = pageSize,
                     onGestureEnd = { zoomSettleTick++ },
-                    onPageEdgeSwipe = onPageEdgeSwipe,
                     onTap = { tapPoint ->
                         if (selection != null) {
                             clearSelection()
@@ -447,100 +429,6 @@ internal fun ReaderPage(
         }
     }
 }
-
-@Composable
-private fun ZoomedPageImage(
-    bitmap: Bitmap,
-    zoomState: ZoomState,
-    sharpRegion: SharpRegion?,
-    selection: TextSelection?,
-    pageSize: RectF?,
-    onGestureEnd: () -> Unit,
-    onPageEdgeSwipe: (Int) -> Unit,
-    onTap: (Offset) -> Unit,
-    onLongPress: (Offset) -> Boolean,
-    onSelectionDrag: (Offset) -> Unit,
-    onSelectionEnd: () -> Unit,
-    onHandleHit: (Offset) -> Boolean,
-    onHandleDrag: (Offset) -> Unit,
-    onHandleEnd: () -> Unit,
-) {
-    val density = LocalDensity.current
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .clipToBounds(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .zoomable(
-                        state = zoomState,
-                        onTap = onTap,
-                        onGestureEnd = onGestureEnd,
-                        onPageEdgeSwipe = onPageEdgeSwipe,
-                        onLongPress = onLongPress,
-                        onSelectionDrag = onSelectionDrag,
-                        onSelectionEnd = onSelectionEnd,
-                        onHandleHit = onHandleHit,
-                        onHandleDrag = onHandleDrag,
-                        onHandleEnd = onHandleEnd,
-                    ).graphicsLayer {
-                        scaleX = zoomState.scale
-                        scaleY = zoomState.scale
-                        translationX = zoomState.offsetX
-                        translationY = zoomState.offsetY
-                    },
-        ) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "PDF page",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (sharpRegion != null) {
-                Image(
-                    bitmap = sharpRegion.bitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier =
-                        Modifier
-                            .offset {
-                                with(density) {
-                                    IntOffset(
-                                        sharpRegion.left.roundToInt(),
-                                        sharpRegion.top.roundToInt(),
-                                    )
-                                }
-                            }.size(
-                                width = with(density) { sharpRegion.width.toDp() },
-                                height = with(density) { sharpRegion.height.toDp() },
-                            ),
-                )
-            }
-            val points = pageSize
-            if (selection != null && points != null) {
-                SelectionOverlay(
-                    pageText = selection.pageText,
-                    startIndex = selection.first,
-                    endIndex = selection.last,
-                    pageSize = points,
-                )
-            }
-        }
-    }
-}
-
-private data class SharpRegion(
-    val bitmap: Bitmap,
-    val left: Float,
-    val top: Float,
-    val width: Float,
-    val height: Float,
-)
 
 @Composable
 private fun ReaderPageLoading() {

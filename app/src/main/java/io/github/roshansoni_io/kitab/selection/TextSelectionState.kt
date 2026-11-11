@@ -6,6 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import kotlin.math.abs
 
+/** Which end of a text selection the user is dragging. */
+internal enum class SelectionHandle { Start, End }
+
 internal class TextSelectionState {
     var range by mutableStateOf<IntRange?>(null)
         private set

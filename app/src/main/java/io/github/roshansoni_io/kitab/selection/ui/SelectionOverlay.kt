@@ -2,16 +2,7 @@ package io.github.roshansoni_io.kitab.selection.ui
 
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.selection.PageText
 import io.github.roshansoni_io.kitab.selection.SelectionHandle
 import kotlin.math.min
@@ -135,43 +125,6 @@ private fun DrawScope.drawSelectionHandle(
     translate(left = anchor.x - width / 2f, top = anchor.y) {
         with(painter) {
             draw(size = Size(width, height))
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun SelectionToolbar(
-    onCopy: () -> Unit,
-    onSelectAll: () -> Unit,
-    onShare: () -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
-        modifier = modifier,
-    ) {
-        FlowRow(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            val contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-            TextButton(onClick = onCopy, contentPadding = contentPadding) {
-                Text(text = stringResource(R.string.selection_action_copy))
-            }
-            TextButton(onClick = onSelectAll, contentPadding = contentPadding) {
-                Text(text = stringResource(R.string.selection_action_select_all))
-            }
-            TextButton(onClick = onShare, contentPadding = contentPadding) {
-                Text(text = stringResource(R.string.selection_action_share))
-            }
-            TextButton(onClick = onClose, contentPadding = contentPadding) {
-                Text(text = stringResource(R.string.selection_action_close))
-            }
         }
     }
 }

@@ -14,21 +14,6 @@ import io.github.roshansoni_io.kitab.selection.PageText
 import java.io.File
 import kotlin.math.ceil
 
-sealed class DocumentOpenException(
-    message: String,
-) : Exception(message) {
-    class PasswordRequired : DocumentOpenException("This document is password protected")
-
-    class NotReadable(
-        path: String,
-    ) : DocumentOpenException("Cannot read document at $path")
-
-    class Failed(
-        document: File,
-        cause: Throwable,
-    ) : DocumentOpenException("Cannot open document ${document.name} (${cause.message})")
-}
-
 class MuPdfDocument internal constructor(
     private val document: Document,
 ) : AutoCloseable {
