@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -40,10 +41,16 @@ import kotlin.math.roundToInt
 internal fun ReaderContent(
     readerBook: ReaderBook,
     bookTitle: String,
+    resumePage: Int,
+    onProgress: (page: Int, pageCount: Int) -> Unit,
     onBack: () -> Unit,
     onOpenExternalLink: (String) -> Unit,
 ) {
-    val pagerState = rememberPagerState(pageCount = { readerBook.pageCount })
+    val pagerState =
+        rememberPagerState(
+            initialPage = resumePage.coerceIn(0, readerBook.pageCount - 1),
+            pageCount = { readerBook.pageCount },
+        )
     val zoomedPages = remember { mutableStateMapOf<Int, Boolean>() }
     val selectingPages = remember { mutableStateMapOf<Int, Boolean>() }
     val zoomStates = remember { mutableStateMapOf<Int, ZoomState>() }
@@ -52,6 +59,7 @@ internal fun ReaderContent(
     var pendingLinkUri by remember { mutableStateOf<String?>(null) }
     var chromeVisible by remember { mutableStateOf(true) }
     val backgroundColorArgb = MaterialTheme.colorScheme.background.toArgb()
+    val latestOnProgress by rememberUpdatedState(onProgress)
 
     // Pre-renders the neighbouring pages at the same size the visible page uses so
     // a flip (especially a zoomed one) finds the next bitmap already in cache.
@@ -75,6 +83,7 @@ internal fun ReaderContent(
 
     LaunchedEffect(readerBook, backgroundColorArgb) {
         snapshotFlow { pagerState.currentPage }.collectLatest { currentPage ->
+            latestOnProgress(currentPage, readerBook.pageCount)
             prefetchNeighbors(currentPage)
         }
     }

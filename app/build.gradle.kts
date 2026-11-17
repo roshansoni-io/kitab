@@ -30,6 +30,10 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all {
+                it.maxHeapSize = "256m"
+                it.maxParallelForks = 1
+            }
         }
     }
 
@@ -71,6 +75,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     lint {

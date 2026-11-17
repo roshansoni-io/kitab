@@ -2,6 +2,7 @@ package io.github.roshansoni_io.kitab.reader.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,14 +27,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/**
- * Opens the book in the background and routes to the reader content, or to the
- * loading / error screens while the file is being read.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(
     book: Book,
+    resumePage: Int,
+    onProgress: (page: Int, pageCount: Int) -> Unit,
     onBack: () -> Unit,
     onOpenExternalLink: (String) -> Unit,
 ) {
@@ -68,6 +67,8 @@ fun ReaderScreen(
                     ReaderContent(
                         readerBook = readerBook,
                         bookTitle = book.title,
+                        resumePage = resumePage,
+                        onProgress = onProgress,
                         onBack = onBack,
                         onOpenExternalLink = onOpenExternalLink,
                     )
@@ -103,7 +104,14 @@ private fun ReaderLoadingScreen(
                     .statusBarsPadding(),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Text(
+                    text = "Opening book\u2026",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
         }
     }
 }
