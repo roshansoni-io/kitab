@@ -15,9 +15,9 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -322,9 +322,9 @@ private fun HomeNavigationBar(
     selectedDestination: HomeDestination,
     onSelectDestination: (HomeDestination) -> Unit,
 ) {
-    NavigationBar {
+    ShortNavigationBar {
         HomeDestination.entries.forEach { destination ->
-            NavigationBarItem(
+            ShortNavigationBarItem(
                 selected = selectedDestination == destination,
                 onClick = { onSelectDestination(destination) },
                 icon = { Icon(imageVector = destination.icon, contentDescription = null) },

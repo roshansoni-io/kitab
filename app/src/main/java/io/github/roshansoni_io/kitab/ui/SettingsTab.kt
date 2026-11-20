@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -27,7 +26,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,7 +45,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.BuildConfig
 import io.github.roshansoni_io.kitab.R
@@ -57,7 +57,6 @@ internal fun SettingsTabContent(
     contentPadding: PaddingValues,
 ) {
     val settings by settingsRepository.settings.collectAsState()
-    var isThemeDialogVisible by remember { mutableStateOf(false) }
     var isAboutDialogVisible by remember { mutableStateOf(false) }
     var areLicensesDialogVisible by remember { mutableStateOf(false) }
     val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -83,14 +82,12 @@ internal fun SettingsTabContent(
                 SettingsItem(
                     title = "Theme",
                     icon = Icons.Filled.Settings,
-                    onClick = { isThemeDialogVisible = true },
-                    trailing = {
-                        Text(
-                            text = settings.themeMode.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
+                    supporting = "Choose light, dark, or follow the system",
+                )
+                ThemeSelector(
+                    selected = settings.themeMode,
+                    onSelect = settingsRepository::setThemeMode,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 )
                 SettingsSwitchItem(
                     title = "Dynamic color",
@@ -124,14 +121,6 @@ internal fun SettingsTabContent(
                 )
             }
         }
-    }
-
-    if (isThemeDialogVisible) {
-        ThemeDialog(
-            selected = settings.themeMode,
-            onSelect = { mode -> settingsRepository.setThemeMode(mode) },
-            onDismiss = { isThemeDialogVisible = false },
-        )
     }
 
     if (isAboutDialogVisible) {
@@ -234,7 +223,6 @@ private fun SettingsItem(
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = disabledAlpha)
         }
     ListItem(
-        headlineContent = { Text(text = title, color = headlineColor) },
         supportingContent =
             if (supporting != null) {
                 { Text(text = supporting, color = supportingColor) }
@@ -261,7 +249,9 @@ private fun SettingsItem(
             } else {
                 Modifier
             },
-    )
+    ) {
+        Text(text = title, color = headlineColor)
+    }
 }
 
 @Composable
@@ -295,45 +285,22 @@ private fun SettingsSwitchItem(
 }
 
 @Composable
-private fun ThemeDialog(
+private fun ThemeSelector(
     selected: ThemeMode,
     onSelect: (ThemeMode) -> Unit,
-    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Theme") },
-        text = {
-            Column {
-                ThemeMode.entries.forEach { mode ->
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = mode == selected,
-                                    role = Role.RadioButton,
-                                    onClick = { onSelect(mode) },
-                                ).padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = mode == selected,
-                            onClick = null,
-                        )
-                        Text(
-                            text = mode.label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 16.dp),
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(text = "Done") }
-        },
-    )
+    val modes = ThemeMode.entries
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        modes.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = selected == mode,
+                onClick = { onSelect(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                label = { Text(text = mode.label) },
+            )
+        }
+    }
 }
 
 @Composable
@@ -355,7 +322,7 @@ private fun InfoDialog(
 private val ThemeMode.label: String
     get() =
         when (this) {
-            ThemeMode.System -> "System default"
+            ThemeMode.System -> "System"
             ThemeMode.Light -> "Light"
             ThemeMode.Dark -> "Dark"
         }

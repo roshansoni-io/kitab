@@ -3,7 +3,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -17,11 +16,11 @@ val releaseKeystoreProperties =
 
 android {
     namespace = "io.github.roshansoni_io.kitab"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.roshansoni_io.kitab"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -79,20 +78,14 @@ android {
     }
 
     lint {
-        // Dependency versions are intentionally pinned: newer AGP/BOM/activity releases
-        // require compileSdk 37 / minSdk 23, which the SDK setup used here does not provide.
+        // Dependency versions are intentionally pinned: newer BOM releases
+        // require compileSdk 37 / minSdk 24 / AGP 9.1.1, all configured here.
         disable += listOf("AndroidGradlePluginVersion", "GradleDependency")
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -120,7 +113,6 @@ tasks.named("check") {
 
 val ktlint by configurations.creating {
     isCanBeConsumed = false
-    isVisible = false
 }
 
 dependencies {

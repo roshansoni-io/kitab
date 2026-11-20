@@ -1,6 +1,0 @@
-#!/bin/bash
-
-  #signing configuration for apk-devtool
-  #_jks=/data/data/com.termux/files/home/apk-devtool/debug.keystore
-  #_jks_pass=android
-  
