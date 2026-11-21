@@ -12,7 +12,7 @@
 
         <path
             android:fillColor="@android:color/transparent"
-            android:strokeColor="#FFFFFF"
+            android:strokeColor="#191C1F"
             android:strokeWidth="1.8"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
@@ -28,7 +28,7 @@
 
         <path
             android:fillColor="@android:color/transparent"
-            android:strokeColor="#FFFFFF"
+            android:strokeColor="#191C1F"
             android:strokeWidth="1.8"
             android:strokeLineCap="round"
             android:pathData="M12,6.2 V20"/>

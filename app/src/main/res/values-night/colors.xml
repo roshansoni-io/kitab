@@ -1,5 +1,5 @@
 <resources>
     <color name="splash_background">#191C1F</color>
-    <color name="launcher_background">#004A79</color>
+    <color name="launcher_background">#191C1F</color>
     <color name="brand_primary">#9CCAFF</color>
 </resources>

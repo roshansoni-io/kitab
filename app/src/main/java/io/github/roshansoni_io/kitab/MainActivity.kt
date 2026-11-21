@@ -9,17 +9,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
-import io.github.roshansoni_io.kitab.data.SettingsRepository
-import io.github.roshansoni_io.kitab.ui.KitabRoot
-import io.github.roshansoni_io.kitab.ui.theme.KitabTheme
-import io.github.roshansoni_io.kitab.ui.theme.isDarkTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.roshansoni_io.kitab.core.di.AppContainer
+import io.github.roshansoni_io.kitab.navigation.KitabRoot
+import io.github.roshansoni_io.kitab.core.ui.theme.KitabTheme
+import io.github.roshansoni_io.kitab.core.ui.theme.isDarkTheme
 
 class MainActivity : ComponentActivity() {
     private val pendingExternalBookUri = mutableStateOf<Uri?>(null)
@@ -30,18 +30,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         pendingExternalBookUri.value = externalBookUri(intent)
         setContent {
-            val settingsRepository = remember { SettingsRepository(applicationContext) }
-            val settings by settingsRepository.settings.collectAsState()
+            val container = remember { AppContainer(applicationContext) }
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
             val darkTheme = isDarkTheme(settings.themeMode)
             KitabTheme(
                 themeMode = settings.themeMode,
                 dynamicColor = settings.dynamicColor,
+                appPalette = settings.appPalette,
             ) {
                 SystemBarsEffect(window = window, darkTheme = darkTheme)
                 KitabRoot(
+                    container = container,
                     pendingExternalUri = pendingExternalBookUri.value,
                     onExternalUriHandled = { pendingExternalBookUri.value = null },
-                    settingsRepository = settingsRepository,
                 )
             }
         }
