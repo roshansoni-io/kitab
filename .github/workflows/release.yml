@@ -1,0 +1,105 @@
+name: Android release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Configure release signing
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          required = (
+              "RELEASE_KEYSTORE_BASE64",
+              "RELEASE_STORE_PASSWORD",
+              "RELEASE_KEY_ALIAS",
+              "RELEASE_KEY_PASSWORD",
+          )
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+
+          keystore = Path(os.environ["RUNNER_TEMP"]) / "kitab-release.jks"
+          keystore.write_bytes(base64.b64decode(os.environ["RELEASE_KEYSTORE_BASE64"], validate=True))
+          keystore.chmod(0o600)
+
+          def escape_property(value: str) -> str:
+              return (
+                  value.replace("\\", "\\\\")
+                  .replace("\t", "\\t")
+                  .replace("\n", "\\n")
+                  .replace("\r", "\\r")
+                  .replace("\f", "\\f")
+                  .replace(" ", "\\ ")
+                  .replace("=", "\\=")
+                  .replace(":", "\\:")
+                  .replace("#", "\\#")
+                  .replace("!", "\\!")
+              )
+
+          properties = {
+              "storeFile": str(keystore),
+              "storePassword": os.environ["RELEASE_STORE_PASSWORD"],
+              "keyAlias": os.environ["RELEASE_KEY_ALIAS"],
+              "keyPassword": os.environ["RELEASE_KEY_PASSWORD"],
+          }
+          properties_file = Path(os.environ["GITHUB_WORKSPACE"]) / "keystore.properties"
+          properties_file.write_text(
+              "".join(f"{key}={escape_property(value)}\n" for key, value in properties.items()),
+              encoding="utf-8",
+          )
+          properties_file.chmod(0o600)
+          PY
+
+      - name: Build signed release APK
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Attach APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          safe_tag="${GITHUB_REF_NAME//\//-}"
+          apk_name="Kitab-${safe_tag}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/$apk_name"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/$apk_name" --clobber
+
+      - name: Remove release signing files
+        if: always()
+        shell: bash
+        run: |
+          rm -f keystore.properties "$RUNNER_TEMP/kitab-release.jks"
