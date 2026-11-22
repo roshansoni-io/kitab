@@ -1,8 +1,8 @@
 package io.github.roshansoni_io.kitab.navigation
 
-import android.net.Uri
 import androidx.annotation.DrawableRes
 import io.github.roshansoni_io.kitab.R
+import kotlinx.serialization.Serializable
 
 internal enum class KitabTab(
     val route: String,
@@ -14,11 +14,11 @@ internal enum class KitabTab(
     Settings("settings", "Settings", R.drawable.ic_settings),
 }
 
+@Serializable
+internal data class ReaderDestination(
+    val bookUri: String,
+)
+
 internal object KitabDestinations {
-    const val READER_ROUTE = "reader/{bookUri}"
-    const val BOOK_URI_ARGUMENT = "bookUri"
-
-    fun reader(bookUri: String): String = "reader/${Uri.encode(bookUri)}"
-
     fun tabForRoute(route: String?): KitabTab? = KitabTab.entries.firstOrNull { it.route == route }
 }

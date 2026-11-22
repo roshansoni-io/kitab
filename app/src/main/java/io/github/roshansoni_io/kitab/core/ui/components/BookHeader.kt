@@ -38,19 +38,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.R
 
 @Composable
 internal fun BookHeader(
-    title: String? = null,
     isSearchActive: Boolean,
     query: String,
     onSearchActiveChange: (Boolean) -> Unit,
     onQueryChange: (String) -> Unit,
-    onOverflowClick: () -> Unit = {},
     overflowMenuContent: (@Composable ColumnScope.(onDismissRequest: () -> Unit) -> Unit)? = null,
 ) {
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
@@ -76,15 +73,6 @@ internal fun BookHeader(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(44.dp),
                 )
-                if (!title.isNullOrBlank()) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(start = 12.dp),
-                    )
-                }
                 Spacer(modifier = Modifier.weight(1f))
                 HeaderActionButton(
                     icon = Icons.Filled.Search,
@@ -96,10 +84,7 @@ internal fun BookHeader(
                     HeaderActionButton(
                         icon = Icons.Filled.MoreVert,
                         contentDescription = "More options",
-                        onClick = {
-                            onOverflowClick()
-                            isOverflowMenuExpanded = overflowMenuContent != null
-                        },
+                        onClick = { isOverflowMenuExpanded = overflowMenuContent != null },
                     )
                     if (overflowMenuContent != null) {
                         DropdownMenu(

@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 interface BookRepository {
     val books: StateFlow<List<Book>>
 
+    suspend fun initialize()
+
     suspend fun addBook(uri: String): Book?
 
     suspend fun openBook(uri: String): Book?

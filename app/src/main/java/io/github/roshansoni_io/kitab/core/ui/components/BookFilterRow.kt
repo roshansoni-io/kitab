@@ -64,7 +64,6 @@ private val BookFilter.label: String
             BookFilter.All -> "All Books"
             BookFilter.Recent -> "Recent"
             BookFilter.Starred -> "Starred"
-            BookFilter.Pdf -> "PDF"
         }
 
 private val BookFilter.icon: Int
@@ -73,5 +72,4 @@ private val BookFilter.icon: Int
             BookFilter.All -> R.drawable.ic_kitab_logo
             BookFilter.Recent -> R.drawable.ic_clock
             BookFilter.Starred -> R.drawable.ic_star
-            BookFilter.Pdf -> R.drawable.ic_pdf
         }

@@ -59,7 +59,6 @@ internal fun ReaderContent(
         )
     val zoomedPages = remember { mutableStateMapOf<Int, Boolean>() }
     val selectingPages = remember { mutableStateMapOf<Int, Boolean>() }
-    val zoomStates = remember { mutableStateMapOf<Int, ZoomState>() }
     val viewportSize = remember { mutableStateOf(IntSize.Zero) }
     val scope = rememberCoroutineScope()
     var pendingLinkUri by remember { mutableStateOf<String?>(null) }
@@ -172,13 +171,6 @@ internal fun ReaderContent(
                     backgroundColor = pageBackground,
                     selectionColor = settings.selectionColor,
                     maximumZoom = ZoomState.MAX_SCALE,
-                    onZoomStateRegistered = { zoomState ->
-                        if (zoomState == null) {
-                            zoomStates.remove(pageIndex)
-                        } else {
-                            zoomStates[pageIndex] = zoomState
-                        }
-                    },
                     onZoomChanged = { isZoomed ->
                         if (isZoomed) zoomedPages[pageIndex] = true else zoomedPages.remove(pageIndex)
                     },

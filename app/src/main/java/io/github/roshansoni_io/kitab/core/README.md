@@ -9,4 +9,4 @@
 - [`platform`](platform/README.md) contains Android-specific storage and external-link operations.
 - [`ui`](ui/README.md) contains reusable components and app theme code.
 
-`BookRepository.books` and `SettingsRepository.settings` are `StateFlow` sources of truth. `PdfCoverRenderer` keeps PDF rendering behind a repository contract. The composition root currently supplies the MuPDF adapter from `feature/reader/document`; keep that cross-package wiring confined to `di`.
+`BookRepository.books` and `SettingsRepository.settings` are `StateFlow` sources of truth. The composition root supplies `BookCoverRenderer`; keep platform wiring confined to `di`.

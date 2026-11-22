@@ -76,7 +76,6 @@ internal fun ReaderPage(
     backgroundColor: Color,
     selectionColor: SelectionColor,
     maximumZoom: Float,
-    onZoomStateRegistered: (ZoomState?) -> Unit,
     onZoomChanged: (Boolean) -> Unit,
     onSelectingChanged: (Boolean) -> Unit,
     onLinkTapped: (LinkTarget) -> Unit,
@@ -206,19 +205,22 @@ internal fun ReaderPage(
                     zoom = spec.zoom,
                     backgroundColor = backgroundColor.toArgb(),
                 )
-            val fitted = PageGeometry.fittedSize(bitmap, viewport)
-            val contentScale = fitted.width / points.width()
-            val letterboxX = (viewport.width - fitted.width) / 2f
-            val letterboxY = (viewport.height - fitted.height) / 2f
-            val left = letterboxX + (spec.pageRect.left - points.left) * contentScale
-            val top = letterboxY + (spec.pageRect.top - points.top) * contentScale
+            val regionBounds =
+                PageGeometry.regionScreenRect(
+                    region = spec,
+                    pageSizePoints = points,
+                    viewport = viewport,
+                    zoomScale = 1f,
+                    panX = 0f,
+                    panY = 0f,
+                ) ?: return@LaunchedEffect
             sharpRegion =
                 SharpRegion(
                     bitmap = regionBitmap,
-                    left = left,
-                    top = top,
-                    width = spec.pageRect.width() * contentScale,
-                    height = spec.pageRect.height() * contentScale,
+                    left = regionBounds.left,
+                    top = regionBounds.top,
+                    width = regionBounds.width(),
+                    height = regionBounds.height(),
                 )
             lastRegionSpec = spec
         } catch (cancelled: CancellationException) {
@@ -240,11 +242,6 @@ internal fun ReaderPage(
 
     DisposableEffect(pageIndex) {
         onDispose { onZoomChanged(false) }
-    }
-
-    DisposableEffect(pageIndex, zoomState) {
-        onZoomStateRegistered(zoomState)
-        onDispose { onZoomStateRegistered(null) }
     }
 
     val bitmap = pageBitmap

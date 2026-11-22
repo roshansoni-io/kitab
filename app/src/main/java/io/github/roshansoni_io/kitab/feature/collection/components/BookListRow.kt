@@ -1,14 +1,11 @@
-package io.github.roshansoni_io.kitab.feature.library.components
+package io.github.roshansoni_io.kitab.feature.collection.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,13 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.ui.components.BookMenuButton
-import io.github.roshansoni_io.kitab.core.ui.components.CompactProgressBar
 import io.github.roshansoni_io.kitab.core.ui.components.CoverImage
 import io.github.roshansoni_io.kitab.core.ui.components.ProgressBar
 import io.github.roshansoni_io.kitab.core.ui.components.progressLabel
@@ -47,59 +42,7 @@ import io.github.roshansoni_io.kitab.core.ui.components.readingProgress
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun LibraryBookCard(
-    book: Book,
-    cover: ImageBitmap?,
-    onCoverRequested: (Book) -> Unit,
-    onOpenBook: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
-    onAddToLibrary: (Book) -> Unit,
-    onRequestRemove: (Book) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var isOverflowMenuExpanded by remember { mutableStateOf(false) }
-    LaunchedEffect(book.uri, cover) {
-        if (cover == null) onCoverRequested(book)
-    }
-    val shape = RectangleShape
-    Card(
-        shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        modifier =
-            modifier
-                .clip(shape)
-                .combinedClickable(
-                    onClick = { onOpenBook(book) },
-                    onLongClick = { onRequestRemove(book) },
-                ),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(.72f),
-        ) {
-            CoverImage(
-                cover = cover,
-                modifier = Modifier.fillMaxSize(),
-            )
-            BookMenuButton(
-                isExpanded = isOverflowMenuExpanded,
-                book = book,
-                onExpandedChange = { isOverflowMenuExpanded = it },
-                onToggleStar = onToggleStar,
-                onAddToLibrary = onAddToLibrary,
-                onRequestRemove = onRequestRemove,
-                isCompact = true,
-                modifier = Modifier.align(Alignment.BottomStart),
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-internal fun LibraryBookRow(
+internal fun BookListRow(
     book: Book,
     cover: ImageBitmap?,
     onCoverRequested: (Book) -> Unit,

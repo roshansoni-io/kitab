@@ -28,14 +28,6 @@ class MuPdfDocument internal constructor(
         needsPassword = document.needsPassword()
     }
 
-    fun title(): String =
-        when (val meta = document.getMetaData(Document.META_INFO_TITLE)) {
-            null, "" -> ""
-            else -> meta
-        }
-
-    fun authenticate(password: String): Boolean = synchronized(lock) { document.authenticatePassword(password) }
-
     fun pageSize(pageIndex: Int): RectF =
         synchronized(lock) {
             checkOpen()
@@ -254,3 +246,27 @@ class MuPdfDocument internal constructor(
             }
     }
 }
+
+sealed class DocumentOpenException(
+    message: String,
+) : Exception(message) {
+    class PasswordRequired : DocumentOpenException("This document is password protected")
+
+    class NotReadable(
+        path: String,
+    ) : DocumentOpenException("Cannot read document at $path")
+
+    class Failed(
+        document: File,
+        cause: Throwable,
+    ) : DocumentOpenException("Cannot open document ${document.name} (${cause.message})")
+}
+
+/** A tappable link region expressed in PDF page points. */
+data class LinkTarget(
+    val rect: RectF,
+    /** Zero-based target page for an internal link; null for external URIs. */
+    val targetPage: Int?,
+    /** External URI; null for internal links. */
+    val uri: String?,
+)

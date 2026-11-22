@@ -33,7 +33,7 @@ Release APKs and bundles must be signed with a configured release key. Put `stor
 
 ## Usage
 
-Use **Add Book** to choose a PDF on your device. Added PDFs are stored in the shared `Kitab` folder so they remain visible in file manager apps, and appear in the library; opening a PDF also places it in Recent. Kitab requests storage access to read selected PDFs and manage files in this folder. Tap a book to read it. In the reader, swipe or use the page controls to move between pages, pinch to zoom, and tap a link to review it before opening it outside Kitab.
+Use **Add Book** to choose a PDF on your device. Added PDFs are stored in Kitab’s private app storage and appear in the library; opening a PDF also places it in Recent. Imported files stay private to Kitab, and the Android document picker grants access only to the PDF you select. Tap a book to read it. In the reader, swipe or use the page controls to move between pages, pinch to zoom, and tap a link to review it before opening it outside Kitab.
 
 Kitab currently supports PDF documents. Password-protected PDFs are not supported.
 

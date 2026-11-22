@@ -17,6 +17,8 @@ class FakeBookRepository : BookRepository {
     var openResult: Book? = null
     var cover: Bitmap? = null
 
+    override suspend fun initialize() = Unit
+
     fun addInitialBooks(vararg initialBooks: Book) {
         _books.value = _books.value + initialBooks
     }

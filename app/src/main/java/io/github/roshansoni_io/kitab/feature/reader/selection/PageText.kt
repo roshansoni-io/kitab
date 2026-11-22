@@ -14,20 +14,22 @@ data class PageChar(
 data class PageText(
     val chars: List<PageChar>,
 ) {
-    val lineRanges: List<IntRange> =
+    val lineRanges: List<IntRange> by lazy {
         buildList {
-            if (chars.isEmpty()) return@buildList
-            var lineStart = 0
-            for (index in 1 until chars.size) {
-                if (chars[index].lineIndex != chars[index - 1].lineIndex) {
-                    add(lineStart until index)
-                    lineStart = index
+            if (chars.isNotEmpty()) {
+                var lineStart = 0
+                for (index in 1 until chars.size) {
+                    if (chars[index].lineIndex != chars[index - 1].lineIndex) {
+                        add(lineStart until index)
+                        lineStart = index
+                    }
                 }
+                add(lineStart until chars.size)
             }
-            add(lineStart until chars.size)
         }
+    }
 
-    val lineBounds: List<RectF> =
+    val lineBounds: List<RectF> by lazy {
         lineRanges.map { range ->
             val first = chars[range.first].rect
             var left = first.left
@@ -43,6 +45,7 @@ data class PageText(
             }
             RectF(left, top, right, bottom)
         }
+    }
 
     val isEmpty: Boolean get() = chars.isEmpty()
 

@@ -96,7 +96,11 @@ class SharedPreferencesSettingsRepository(
                 else -> DEFAULT_SEED_COLOR
             }
 
-        prefs.edit().putInt(KEY_CUSTOM_SEED_COLOR, seedColor).remove(KEY_LEGACY_APP_PALETTE).apply()
+        prefs
+            .edit()
+            .putInt(KEY_CUSTOM_SEED_COLOR, seedColor)
+            .remove(KEY_LEGACY_APP_PALETTE)
+            .apply()
         return seedColor
     }
 

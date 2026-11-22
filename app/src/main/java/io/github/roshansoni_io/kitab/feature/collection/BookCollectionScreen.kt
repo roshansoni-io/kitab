@@ -1,19 +1,25 @@
-package io.github.roshansoni_io.kitab.feature.library
+package io.github.roshansoni_io.kitab.feature.collection
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.data.model.BookFilter
-import io.github.roshansoni_io.kitab.core.ui.components.AddBookFab
 import io.github.roshansoni_io.kitab.core.ui.components.BookHeader
 import io.github.roshansoni_io.kitab.core.ui.components.RemoveBookDialog
-import io.github.roshansoni_io.kitab.feature.library.components.LibraryContent
-import io.github.roshansoni_io.kitab.feature.library.components.LibraryViewMenuItems
+import io.github.roshansoni_io.kitab.feature.collection.components.BookCollectionContent
+import io.github.roshansoni_io.kitab.feature.collection.components.CollectionViewMenuItems
 
 @Composable
-internal fun LibraryScreen(
-    uiState: LibraryUiState,
+internal fun BookCollectionScreen(
+    uiState: BookCollectionUiState,
+    source: BookCollectionSource,
     onFilterChanged: (BookFilter) -> Unit,
     onListViewChanged: (Boolean) -> Unit,
     onSearchVisibilityChanged: (Boolean) -> Unit,
@@ -27,6 +33,19 @@ internal fun LibraryScreen(
     onRemovalConfirmed: () -> Unit,
     onRemovalDismissed: () -> Unit,
 ) {
+    val overflowMenuContent: (@Composable ColumnScope.(onDismissRequest: () -> Unit) -> Unit)? =
+        if (source.supportsListView) {
+            { onDismissRequest ->
+                CollectionViewMenuItems(
+                    isListView = uiState.isListView,
+                    onViewSelected = onListViewChanged,
+                    onDismissRequest = onDismissRequest,
+                )
+            }
+        } else {
+            null
+        }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -35,19 +54,14 @@ internal fun LibraryScreen(
                 query = uiState.searchQuery,
                 onSearchActiveChange = onSearchVisibilityChanged,
                 onQueryChange = onSearchQueryChanged,
-                overflowMenuContent = { onDismissRequest ->
-                    LibraryViewMenuItems(
-                        isListView = uiState.isListView,
-                        onViewSelected = onListViewChanged,
-                        onDismissRequest = onDismissRequest,
-                    )
-                },
+                overflowMenuContent = overflowMenuContent,
             )
         },
         floatingActionButton = { AddBookFab(onClick = onAddBook) },
     ) { contentPadding ->
-        LibraryContent(
+        BookCollectionContent(
             uiState = uiState,
+            source = source,
             contentPadding = contentPadding,
             onFilterSelected = onFilterChanged,
             onOpenBook = onOpenBook,
@@ -65,4 +79,13 @@ internal fun LibraryScreen(
             onDismiss = onRemovalDismissed,
         )
     }
+}
+
+@Composable
+private fun AddBookFab(onClick: () -> Unit) {
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        icon = { Icon(imageVector = Icons.Filled.Add, contentDescription = null) },
+        text = { Text(text = "Add Book") },
+    )
 }

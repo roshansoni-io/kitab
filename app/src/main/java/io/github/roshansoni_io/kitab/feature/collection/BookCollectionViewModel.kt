@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.feature.library
+package io.github.roshansoni_io.kitab.feature.collection
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -20,13 +20,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal data class LibraryUiState(
+internal data class BookCollectionUiState(
     val isLoading: Boolean = true,
     val books: List<Book> = emptyList(),
     val totalBookCount: Int = 0,
@@ -38,41 +37,48 @@ internal data class LibraryUiState(
     val pendingRemoval: Book? = null,
 )
 
-internal sealed interface LibraryEffect {
+internal sealed interface BookCollectionEffect {
     data class ShowSnackbar(
         val message: String,
-    ) : LibraryEffect
+    ) : BookCollectionEffect
 }
 
-internal class LibraryViewModel(
+internal class BookCollectionViewModel(
     private val bookRepository: BookRepository,
     private val settingsRepository: SettingsRepository,
+    private val source: BookCollectionSource,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(initialUiState())
-    val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
+    private val filterKey = "${source.savedStateKeyPrefix}_filter"
+    private val searchActiveKey = "${source.savedStateKeyPrefix}_search_active"
+    private val searchQueryKey = "${source.savedStateKeyPrefix}_search_query"
 
-    private val _effects = Channel<LibraryEffect>(Channel.BUFFERED)
-    val effects: Flow<LibraryEffect> = _effects.receiveAsFlow()
+    private val _uiState = MutableStateFlow(initialUiState())
+    val uiState: StateFlow<BookCollectionUiState> = _uiState.asStateFlow()
+
+    private val _effects = Channel<BookCollectionEffect>(Channel.BUFFERED)
+    val effects: Flow<BookCollectionEffect> = _effects.receiveAsFlow()
+
     private val coverRequests = mutableSetOf<String>()
+    private var sourceBooks = emptyList<Book>()
 
     init {
         viewModelScope.launch {
-            bookRepository.books.collectLatest { allBooks ->
-                val libraryBooks = allBooks.filter(Book::inLibrary)
-                publishBooks(libraryBooks)
+            bookRepository.initialize()
+            bookRepository.books.collect { allBooks ->
+                publishBooks(allBooks)
             }
         }
     }
 
     fun onFilterChanged(filter: BookFilter) {
-        savedStateHandle[KEY_FILTER] = filter.name
+        savedStateHandle[filterKey] = filter.name
         _uiState.update { currentState ->
             currentState.copy(
                 filter = filter,
                 books =
                     visibleBooks(
-                        libraryBooks = bookRepository.books.value.filter(Book::inLibrary),
+                        books = sourceBooks,
                         filter = filter,
                         searchQuery = currentState.searchQuery,
                     ),
@@ -81,21 +87,22 @@ internal class LibraryViewModel(
     }
 
     fun onListViewChanged(isListView: Boolean) {
+        if (!source.supportsListView) return
         settingsRepository.setLibraryListView(isListView)
         _uiState.update { it.copy(isListView = isListView) }
     }
 
     fun onSearchVisibilityChanged(isVisible: Boolean) {
-        savedStateHandle[KEY_SEARCH_ACTIVE] = isVisible
+        savedStateHandle[searchActiveKey] = isVisible
         _uiState.update { currentState ->
             val searchQuery = if (isVisible) currentState.searchQuery else ""
-            savedStateHandle[KEY_SEARCH_QUERY] = searchQuery
+            savedStateHandle[searchQueryKey] = searchQuery
             currentState.copy(
                 isSearchActive = isVisible,
                 searchQuery = searchQuery,
                 books =
                     visibleBooks(
-                        libraryBooks = bookRepository.books.value.filter(Book::inLibrary),
+                        books = sourceBooks,
                         filter = currentState.filter,
                         searchQuery = searchQuery,
                     ),
@@ -104,13 +111,13 @@ internal class LibraryViewModel(
     }
 
     fun onSearchQueryChanged(searchQuery: String) {
-        savedStateHandle[KEY_SEARCH_QUERY] = searchQuery
+        savedStateHandle[searchQueryKey] = searchQuery
         _uiState.update { currentState ->
             currentState.copy(
                 searchQuery = searchQuery,
                 books =
                     visibleBooks(
-                        libraryBooks = bookRepository.books.value.filter(Book::inLibrary),
+                        books = sourceBooks,
                         filter = currentState.filter,
                         searchQuery = searchQuery,
                     ),
@@ -148,9 +155,9 @@ internal class LibraryViewModel(
     fun onAddToLibrary(book: Book) {
         viewModelScope.launch {
             if (bookRepository.addBook(book.uri) == null) {
-                _effects.send(LibraryEffect.ShowSnackbar("Could not add book to library"))
+                _effects.send(BookCollectionEffect.ShowSnackbar("Could not add book to library"))
             } else {
-                _effects.send(LibraryEffect.ShowSnackbar("Added to library"))
+                _effects.send(BookCollectionEffect.ShowSnackbar("Added to library"))
             }
         }
     }
@@ -164,7 +171,7 @@ internal class LibraryViewModel(
         _uiState.update { it.copy(pendingRemoval = null) }
         viewModelScope.launch {
             bookRepository.removeBook(book.uri)
-            _effects.send(LibraryEffect.ShowSnackbar("Removed from library"))
+            _effects.send(BookCollectionEffect.ShowSnackbar("Removed from library"))
         }
     }
 
@@ -172,52 +179,54 @@ internal class LibraryViewModel(
         _uiState.update { it.copy(pendingRemoval = null) }
     }
 
-    private fun publishBooks(libraryBooks: List<Book>) {
+    private fun publishBooks(allBooks: List<Book>) {
+        val books =
+            when (source) {
+                BookCollectionSource.Recent -> allBooks.sortedByDescending(Book::lastOpenedAt)
+                BookCollectionSource.Library -> allBooks.filter(Book::inLibrary)
+            }
+        sourceBooks = books
         _uiState.update { currentState ->
             currentState.copy(
                 isLoading = false,
                 books =
                     visibleBooks(
-                        libraryBooks = libraryBooks,
+                        books = books,
                         filter = currentState.filter,
                         searchQuery = currentState.searchQuery,
                     ),
-                totalBookCount = libraryBooks.size,
+                totalBookCount = books.size,
             )
         }
     }
 
-    private fun initialUiState(): LibraryUiState =
-        LibraryUiState(
+    private fun initialUiState(): BookCollectionUiState =
+        BookCollectionUiState(
             filter = savedFilter(),
-            isListView = settingsRepository.settings.value.libraryListView,
-            isSearchActive = savedStateHandle[KEY_SEARCH_ACTIVE] ?: false,
-            searchQuery = savedStateHandle[KEY_SEARCH_QUERY] ?: "",
+            isListView = source.supportsListView && settingsRepository.settings.value.libraryListView,
+            isSearchActive = savedStateHandle[searchActiveKey] ?: false,
+            searchQuery = savedStateHandle[searchQueryKey] ?: "",
         )
 
     private fun savedFilter(): BookFilter =
-        BookFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>(KEY_FILTER) }
+        BookFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>(filterKey) }
             ?: BookFilter.All
 
     private fun visibleBooks(
-        libraryBooks: List<Book>,
+        books: List<Book>,
         filter: BookFilter,
         searchQuery: String,
     ): List<Book> {
         val matchingBooks =
             if (searchQuery.isBlank()) {
-                libraryBooks
+                books
             } else {
                 val normalizedQuery = searchQuery.trim()
-                libraryBooks.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
+                books.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
             }
         return when (filter) {
-            BookFilter.All,
-            BookFilter.Pdf,
-            -> matchingBooks
-
+            BookFilter.All -> matchingBooks
             BookFilter.Recent -> matchingBooks.filter { it.lastOpenedAt > 0 }.sortedByDescending(Book::lastOpenedAt)
-
             BookFilter.Starred -> matchingBooks.filter(Book::starred)
         }
     }
@@ -226,19 +235,17 @@ internal class LibraryViewModel(
         fun factory(
             bookRepository: BookRepository,
             settingsRepository: SettingsRepository,
+            source: BookCollectionSource,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
-                    LibraryViewModel(
+                    BookCollectionViewModel(
                         bookRepository = bookRepository,
                         settingsRepository = settingsRepository,
+                        source = source,
                         savedStateHandle = createSavedStateHandle(),
                     )
                 }
             }
-
-        private const val KEY_FILTER = "library_filter"
-        private const val KEY_SEARCH_ACTIVE = "library_search_active"
-        private const val KEY_SEARCH_QUERY = "library_search_query"
     }
 }

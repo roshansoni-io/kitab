@@ -2,6 +2,7 @@ package io.github.roshansoni_io.kitab.feature.reader.render
 
 import android.graphics.Bitmap
 import android.graphics.RectF
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.sqrt
 
@@ -15,6 +16,23 @@ object PageGeometry {
     /** Safety caps for the single sharp-region bitmap. */
     private const val MAX_REGION_PIXELS = 12_000_000f
     private const val MAX_REGION_DIMENSION = 4096f
+
+    internal fun pageFit(
+        pageSizePoints: RectF,
+        viewport: IntSize,
+    ): PageFit {
+        val pageWidth = pageSizePoints.width()
+        val pageHeight = pageSizePoints.height()
+        if (pageWidth <= 0f || pageHeight <= 0f || viewport.width <= 0 || viewport.height <= 0) {
+            return PageFit(0f, 0f, 0f)
+        }
+        val scale = minOf(viewport.width / pageWidth, viewport.height / pageHeight)
+        return PageFit(
+            scale = scale,
+            offsetX = (viewport.width - pageWidth * scale) / 2f,
+            offsetY = (viewport.height - pageHeight * scale) / 2f,
+        )
+    }
 
     fun fittedSize(
         bitmap: Bitmap,
@@ -53,13 +71,10 @@ object PageGeometry {
         if (pageWidth <= 0f || pageHeight <= 0f || zoomScale <= 0f) return null
         if (viewport.width <= 0 || viewport.height <= 0) return null
 
-        val fit =
-            minOf(
-                viewport.width.toFloat() / pageWidth,
-                viewport.height.toFloat() / pageHeight,
-            )
-        val offsetX = (viewport.width - pageWidth * fit) / 2f
-        val offsetY = (viewport.height - pageHeight * fit) / 2f
+        val pageFit = pageFit(pageSizePoints, viewport)
+        val fit = pageFit.scale
+        val offsetX = pageFit.offsetX
+        val offsetY = pageFit.offsetY
         val centerX = viewport.width / 2f
         val centerY = viewport.height / 2f
 
@@ -121,13 +136,10 @@ object PageGeometry {
         if (pageWidth <= 0f || pageHeight <= 0f || zoomScale <= 0f) return null
         if (viewport.width <= 0 || viewport.height <= 0) return null
 
-        val fit =
-            minOf(
-                viewport.width.toFloat() / pageWidth,
-                viewport.height.toFloat() / pageHeight,
-            )
-        val offsetX = (viewport.width - pageWidth * fit) / 2f
-        val offsetY = (viewport.height - pageHeight * fit) / 2f
+        val pageFit = pageFit(pageSizePoints, viewport)
+        val fit = pageFit.scale
+        val offsetX = pageFit.offsetX
+        val offsetY = pageFit.offsetY
         val centerX = viewport.width / 2f
         val centerY = viewport.height / 2f
 
@@ -149,4 +161,28 @@ object PageGeometry {
             screenY(region.pageRect.bottom),
         )
     }
+}
+
+internal data class PageFit(
+    val scale: Float,
+    val offsetX: Float,
+    val offsetY: Float,
+) {
+    fun toDisplay(
+        pagePoint: Offset,
+        pageSizePoints: RectF,
+    ): Offset =
+        Offset(
+            offsetX + (pagePoint.x - pageSizePoints.left) * scale,
+            offsetY + (pagePoint.y - pageSizePoints.top) * scale,
+        )
+
+    fun toPagePoint(
+        display: Offset,
+        pageSizePoints: RectF,
+    ): Offset =
+        Offset(
+            pageSizePoints.left + (display.x - offsetX) / scale,
+            pageSizePoints.top + (display.y - offsetY) / scale,
+        )
 }

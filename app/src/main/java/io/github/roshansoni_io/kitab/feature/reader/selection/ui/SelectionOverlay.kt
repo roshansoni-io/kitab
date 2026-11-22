@@ -20,11 +20,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
+import io.github.roshansoni_io.kitab.feature.reader.render.PageGeometry
 import io.github.roshansoni_io.kitab.feature.reader.selection.PageText
 import io.github.roshansoni_io.kitab.feature.reader.selection.SelectionHandle
-import kotlin.math.min
 
 internal val SELECTION_HANDLE_WIDTH = 40.dp
 internal val SELECTION_HANDLE_HEIGHT = 56.dp
@@ -48,11 +49,7 @@ fun SelectionOverlay(
         val pageHeight = pageSize.height()
         if (pageWidth <= 0f || pageHeight <= 0f) return@Canvas
 
-        // Aspect-fit the page into the canvas.
-
-        val scale = min(size.width / pageWidth, size.height / pageHeight)
-        val offsetX = (size.width - pageWidth * scale) / 2f
-        val offsetY = (size.height - pageHeight * scale) / 2f
+        val fit = PageGeometry.pageFit(pageSize, IntSize(size.width.toInt(), size.height.toInt()))
 
         val highlight = selectionColor.composeColor.copy(alpha = 0.38f)
         val first = minOf(startIndex, endIndex)
@@ -68,11 +65,11 @@ fun SelectionOverlay(
                     if (next.left <= current.right + 1f && next.right >= current.left - 1f) {
                         current.union(next)
                     } else {
-                        drawSelectionRect(current, highlight, pageSize, scale, offsetX, offsetY)
+                        drawSelectionRect(current, highlight, pageSize, fit.scale, fit.offsetX, fit.offsetY)
                         current = RectF(next)
                     }
                 }
-                drawSelectionRect(current, highlight, pageSize, scale, offsetX, offsetY)
+                drawSelectionRect(current, highlight, pageSize, fit.scale, fit.offsetX, fit.offsetY)
             }
         }
     }

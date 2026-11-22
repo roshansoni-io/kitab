@@ -2,15 +2,16 @@ package io.github.roshansoni_io.kitab.feature.reader
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.math.hypot
 
 /**
  * Tracks pinching, panning, taps, long-press text selection, and
@@ -45,8 +46,6 @@ fun Modifier.zoomable(
             var movement = 0f
             var multipleFingers = false
             var consuming = state.isZoomed
-            var previousCentroid: Offset? = null
-            var previousSpan = 0f
             var pointerCount = 1
             var releasedPosition: Offset? = null
             var selecting = false
@@ -117,11 +116,7 @@ fun Modifier.zoomable(
                 // skip this frame's delta so the content does not jump.
                 if (pressed.size != pointerCount) {
                     pointerCount = pressed.size
-                    previousCentroid = null
-                    previousSpan = 0f
                     if (pressed.size >= 2) multipleFingers = true
-                    previousCentroid = pressedCentroid(pressed)
-                    previousSpan = pressedSpan(pressed)
                     continue
                 }
 
@@ -129,26 +124,20 @@ fun Modifier.zoomable(
                     event.changes.forEach { change -> change.consume() }
                 }
 
-                val centroid = pressedCentroid(pressed)
-                val span = pressedSpan(pressed)
-                val previous = previousCentroid
-                if (previous != null) {
-                    val pan = centroid - previous
-                    movement += pan.getDistance()
-                    when {
-                        pressed.size >= 2 && previousSpan > 0f && span > 0f -> {
-                            state.zoomBy(span / previousSpan, centroid)
-                            consuming = true
-                        }
+                val centroid = event.calculateCentroid(useCurrent = true)
+                val pan = event.calculatePan()
+                movement += pan.getDistance()
+                when {
+                    pressed.size >= 2 -> {
+                        state.zoomBy(event.calculateZoom(), centroid)
+                        consuming = true
+                    }
 
-                        state.isZoomed && pressed.size == 1 -> {
-                            state.panBy(pan)
-                            consuming = true
-                        }
+                    state.isZoomed -> {
+                        state.panBy(pan)
+                        consuming = true
                     }
                 }
-                previousCentroid = centroid
-                previousSpan = span
             }
 
             if (selecting) {
@@ -170,17 +159,4 @@ fun Modifier.zoomable(
             }
         }
     }
-}
-
-private fun pressedCentroid(pressed: List<PointerInputChange>): Offset {
-    val first = pressed.first().position
-    val last = pressed.last().position
-    return Offset((first.x + last.x) / 2f, (first.y + last.y) / 2f)
-}
-
-private fun pressedSpan(pressed: List<PointerInputChange>): Float {
-    if (pressed.size < 2) return 0f
-    val first = pressed.first().position
-    val last = pressed.last().position
-    return hypot(first.x - last.x, first.y - last.y)
 }

@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 /** Shared horizontal padding for reader chrome content. */
 internal object ScreenPadding {
     val medium = 24.dp
-    val small = 8.dp
 }
 
 /**

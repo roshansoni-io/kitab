@@ -31,8 +31,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SliderState
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -513,7 +513,7 @@ private val ReaderPageTone.label: String get() =
 private val SelectionColor.label: String get() = name
 
 private val ABOUT_TEXT =
-    "Kitab is an open-source PDF reader for Android. Import PDFs into the shared Kitab folder, " +
+    "Kitab is an open-source PDF reader for Android. Import PDFs into Kitab's private app storage, " +
         "browse your library and recent books, and read with adjustable page direction, page tone, " +
         "text selection, and pinch-to-zoom. Appearance supports Android wallpaper colors and custom " +
         "Material 3 seed colors.\n\n" +

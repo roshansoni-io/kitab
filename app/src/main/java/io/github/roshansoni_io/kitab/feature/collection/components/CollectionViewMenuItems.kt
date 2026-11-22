@@ -1,4 +1,4 @@
-package io.github.roshansoni_io.kitab.feature.library.components
+package io.github.roshansoni_io.kitab.feature.collection.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -10,7 +10,7 @@ import androidx.compose.ui.res.painterResource
 import io.github.roshansoni_io.kitab.R
 
 @Composable
-internal fun LibraryViewMenuItems(
+internal fun CollectionViewMenuItems(
     isListView: Boolean,
     onViewSelected: (Boolean) -> Unit,
     onDismissRequest: () -> Unit,

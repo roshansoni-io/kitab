@@ -1,5 +1,8 @@
 package io.github.roshansoni_io.kitab.core.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Book(
     val uri: String,
     val cachedPath: String,
@@ -10,3 +13,9 @@ data class Book(
     val inLibrary: Boolean = false,
     val starred: Boolean = false,
 )
+
+enum class BookFilter {
+    All,
+    Recent,
+    Starred,
+}

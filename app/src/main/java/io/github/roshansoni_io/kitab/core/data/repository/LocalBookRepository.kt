@@ -2,11 +2,10 @@ package io.github.roshansoni_io.kitab.core.data.repository
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Environment
 import android.provider.OpenableColumns
 import io.github.roshansoni_io.kitab.core.data.model.Book
+import io.github.roshansoni_io.kitab.core.platform.BookCoverRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,68 +13,87 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.decodeFromJsonElement
 import java.io.File
-import java.io.FileOutputStream
+import java.io.FileInputStream
 import java.io.IOException
+import java.security.MessageDigest
 import java.util.UUID
 
 class LocalBookRepository(
     context: Context,
-    private val coverRenderer: PdfCoverRenderer,
+    private val coverRenderer: BookCoverRenderer,
 ) : BookRepository {
     private val appContext = context.applicationContext
-    private val libraryDir get() = File(Environment.getExternalStorageDirectory(), LIBRARY_DIR)
-    private val openedDir get() = File(appContext.filesDir, OPENED_DIR)
-    private val coversDir get() = File(appContext.filesDir, COVERS_DIR)
+    private val booksDir get() = File(appContext.filesDir, BOOKS_DIR)
+    private val thumbnailsDir get() = File(appContext.filesDir, THUMBNAILS_DIR)
     private val prefs get() = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val coverMutex = Mutex()
-    private val booksMutex = Mutex()
-    private val _books = MutableStateFlow(readBooks())
+    private val bookJson =
+        Json {
+            encodeDefaults = true
+            ignoreUnknownKeys = true
+        }
+    private val mutationMutex = Mutex()
+    private val initializationMutex = Mutex()
+    private val _books = MutableStateFlow<List<Book>>(emptyList())
     override val books: StateFlow<List<Book>> = _books.asStateFlow()
+    private var initialized = false
+
+    override suspend fun initialize() {
+        initializationMutex.withLock {
+            if (initialized) return
+            val loadedBooks = withContext(Dispatchers.IO) { readBooks() }
+            _books.value = loadedBooks
+            initialized = true
+        }
+    }
 
     override suspend fun addBook(uri: String): Book? =
         withContext(Dispatchers.IO) {
-            val documentUri = Uri.parse(uri)
-            val displayName = queryDisplayName(documentUri) ?: DEFAULT_BOOK_TITLE
-            val existing = findBook(uri)
-            val stored =
-                copyTo(documentUri, libraryDir, displayName)
-                    ?: return@withContext null
-            existing
-                ?.cachedPath
-                ?.let(::File)
-                ?.takeIf { it.exists() && it.path != stored.path }
-                ?.delete()
-            val book =
-                (existing ?: Book(uri = uri, cachedPath = stored.path, title = displayName))
-                    .copy(
-                        cachedPath = stored.path,
-                        title = displayName,
-                        inLibrary = true,
-                    )
-            prependRecent(book)
-            book
+            initialize()
+            withBookLock {
+                val existing = findBook(uri)
+                val title = existing?.title ?: queryDisplayName(Uri.parse(uri)) ?: DEFAULT_BOOK_TITLE
+                val stored = resolveStoredFile(uri, existing, title) ?: return@withBookLock null
+
+                val book =
+                    updateBooks { currentBooks ->
+                        val current = currentBooks.firstOrNull { it.uri == uri } ?: existing
+                        val updated =
+                            (current ?: Book(uri = uri, cachedPath = stored.path, title = title)).copy(
+                                cachedPath = stored.path,
+                                title = title,
+                                inLibrary = true,
+                            )
+                        listOf(updated) + currentBooks.filterNot { it.uri == uri }
+                    }.first { it.uri == uri }
+                createThumbnail(book)
+                book
+            }
         }
 
     override suspend fun openBook(uri: String): Book? =
         withContext(Dispatchers.IO) {
-            findBook(uri)?.let { return@withContext it }
-            val documentUri = Uri.parse(uri)
-            val displayName = queryDisplayName(documentUri) ?: DEFAULT_BOOK_TITLE
-            val stored =
-                copyTo(documentUri, openedDir, displayName)
-                    ?: return@withContext null
-            val book =
-                Book(
-                    uri = uri,
-                    cachedPath = stored.path,
-                    title = displayName,
-                    inLibrary = false,
-                )
-            prependRecent(book)
-            book
+            initialize()
+            withBookLock {
+                val existing = findBook(uri)
+                val title = existing?.title ?: queryDisplayName(Uri.parse(uri)) ?: DEFAULT_BOOK_TITLE
+                val stored = resolveStoredFile(uri, existing, title) ?: return@withBookLock null
+
+                updateBooks { currentBooks ->
+                    val current = currentBooks.firstOrNull { it.uri == uri } ?: existing
+                    val updated =
+                        (current ?: Book(uri = uri, cachedPath = stored.path, title = title)).copy(
+                            cachedPath = stored.path,
+                            title = title,
+                        )
+                    listOf(updated) + currentBooks.filterNot { it.uri == uri }
+                }.first { it.uri == uri }
+            }
         }
 
     override suspend fun updateProgress(
@@ -84,16 +102,19 @@ class LocalBookRepository(
         pageCount: Int,
     ): Unit =
         withContext(Dispatchers.IO) {
-            updateBooks { currentBooks ->
-                currentBooks.map { book ->
-                    if (book.uri == uri) {
-                        book.copy(
-                            lastPage = lastPage.coerceAtLeast(0),
-                            pageCount = pageCount,
-                            lastOpenedAt = System.currentTimeMillis(),
-                        )
-                    } else {
-                        book
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) {
+                            book.copy(
+                                lastPage = lastPage.coerceAtLeast(0),
+                                pageCount = pageCount.coerceAtLeast(0),
+                                lastOpenedAt = System.currentTimeMillis(),
+                            )
+                        } else {
+                            book
+                        }
                     }
                 }
             }
@@ -104,88 +125,135 @@ class LocalBookRepository(
         starred: Boolean,
     ): Unit =
         withContext(Dispatchers.IO) {
-            updateBooks { currentBooks ->
-                currentBooks.map { book ->
-                    if (book.uri == uri) book.copy(starred = starred) else book
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) book.copy(starred = starred) else book
+                    }
                 }
             }
         }
 
     override suspend fun removeBook(uri: String): Unit =
         withContext(Dispatchers.IO) {
-            val book = findBook(uri) ?: return@withContext
-            File(book.cachedPath).takeIf { it.exists() }?.delete()
-            coverFile(book).delete()
-            updateBooks { currentBooks -> currentBooks.filterNot { it.uri == uri } }
+            initialize()
+            withBookLock {
+                val book = findBook(uri) ?: return@withBookLock
+                updateBooks { currentBooks -> currentBooks.filterNot { it.uri == uri } }
+                book.cachedPath
+                    .let(::File)
+                    .takeIf { isInside(it, booksDir) }
+                    ?.delete()
+                thumbnailFile(book).delete()
+            }
         }
 
-    fun coverFile(book: Book): File {
-        coversDir.mkdirs()
-        return File(coversDir, "${coverName(book)}.$COVER_EXTENSION")
+    fun thumbnailFile(book: Book): File {
+        thumbnailsDir.mkdirs()
+        return File(thumbnailsDir, "${stableId(book.uri)}.$THUMBNAIL_EXTENSION")
     }
 
     override suspend fun loadCover(book: Book): Bitmap? =
         withContext(Dispatchers.IO) {
-            coverMutex.withLock {
-                val file = coverFile(book)
-                if (!file.exists()) {
-                    runCatching { renderCover(book, file) }
-                        .onFailure { file.delete() }
-                        .getOrNull()
-                        ?: return@withLock null
+            initialize()
+            withBookLock {
+                val current = findBook(book.uri) ?: book
+                val privateFile = resolveStoredFile(current.uri, current, current.title) ?: return@withBookLock null
+                val updatedBook = current.copy(cachedPath = privateFile.path)
+                if (updatedBook.cachedPath != current.cachedPath) {
+                    updateBooks { currentBooks ->
+                        currentBooks.map { if (it.uri == book.uri) it.copy(cachedPath = privateFile.path) else it }
+                    }
                 }
-                BitmapFactory.decodeFile(file.path)
+                val thumbnail = thumbnailFile(updatedBook)
+                coverRenderer.loadOrCreateThumbnail(
+                    pdfFile = File(updatedBook.cachedPath),
+                    thumbnailFile = thumbnail,
+                    targetWidthPx = THUMBNAIL_WIDTH_PX,
+                )
             }
         }
 
-    private fun renderCover(
-        book: Book,
-        destination: File,
-    ) {
-        val bitmap = coverRenderer.renderFirstPage(File(book.cachedPath), COVER_WIDTH_PX) ?: return
-        FileOutputStream(destination).use { output ->
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                "Could not write the book cover image."
-            }
-        }
+    private fun resolveStoredFile(
+        uri: String,
+        existing: Book?,
+        title: String,
+    ): File? {
+        val cachedFile = existing?.cachedPath?.let(::File)
+        if (cachedFile?.isFile == true && isInside(cachedFile, booksDir)) return cachedFile
+        return cachedFile?.takeIf(File::isFile)?.let { copyFile(it, title) }
+            ?: copyUri(Uri.parse(uri), title)
     }
+
+    private fun createThumbnail(book: Book): Boolean =
+        coverRenderer.saveThumbnail(
+            pdfFile = File(book.cachedPath),
+            thumbnailFile = thumbnailFile(book),
+            targetWidthPx = THUMBNAIL_WIDTH_PX,
+        )
 
     private fun findBook(uri: String): Book? = _books.value.firstOrNull { it.uri == uri }
 
-    private suspend fun updateBooks(transform: (List<Book>) -> List<Book>) {
-        booksMutex.withLock {
-            val updatedBooks = transform(_books.value)
-            prefs.edit().putString(RECENTS_KEY, encodeBooks(updatedBooks)).apply()
+    private suspend fun updateBooks(transform: (List<Book>) -> List<Book>): List<Book> =
+        transform(_books.value).also { updatedBooks ->
+            prefs.edit().putString(BOOKS_KEY, encodeBooks(updatedBooks)).apply()
             _books.value = updatedBooks
         }
-    }
+
+    private suspend fun <T> withBookLock(action: suspend () -> T): T = mutationMutex.withLock { action() }
 
     private fun queryDisplayName(uri: Uri): String? =
-        appContext.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameColumn = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (nameColumn >= 0 && cursor.moveToFirst()) {
-                val raw = cursor.getString(nameColumn)?.removeSuffix(".pdf")
-                raw?.takeIf { it.isNotBlank() }
-            } else {
-                null
+        try {
+            appContext.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                val nameColumn = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameColumn >= 0 && cursor.moveToFirst()) {
+                    cursor.getString(nameColumn)?.removeSuffix(".pdf")?.takeIf { it.isNotBlank() }
+                } else {
+                    null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun copyUri(
+        uri: Uri,
+        displayName: String,
+    ): File? =
+        copyToBooks(displayName) { destination ->
+            val input =
+                try {
+                    appContext.contentResolver.openInputStream(uri)
+                } catch (_: Exception) {
+                    null
+                } ?: throw IOException("Could not read the selected PDF.")
+            input.use { stream -> destination.outputStream().use(stream::copyTo) }
+        }
+
+    private fun copyFile(
+        source: File,
+        displayName: String,
+    ): File? =
+        copyToBooks(displayName) { destination ->
+            FileInputStream(source).use { input ->
+                destination.outputStream().use(input::copyTo)
             }
         }
 
-    private fun copyTo(
-        uri: Uri,
-        directory: File,
+    private inline fun copyToBooks(
         displayName: String,
+        copy: (File) -> Unit,
     ): File? {
-        directory.mkdirs()
-        val destination = File(directory, fileName(displayName))
-        return runCatching {
-            appContext.contentResolver.openInputStream(uri)?.use { input ->
-                destination.outputStream().use(input::copyTo)
-                destination
-            } ?: throw IOException("Cannot open stream for $uri")
-        }.onFailure {
+        if (!booksDir.exists() && !booksDir.mkdirs()) return null
+        val destination = File(booksDir, fileName(displayName))
+        return try {
+            copy(destination)
+            destination
+        } catch (_: Exception) {
             destination.delete()
-        }.getOrNull()
+            null
+        }
     }
 
     private fun fileName(displayName: String): String {
@@ -195,80 +263,84 @@ class LocalBookRepository(
                 .trim()
                 .take(MAX_FILE_NAME_LENGTH)
                 .ifBlank { DEFAULT_BOOK_TITLE }
-        return "$base-${UUID.randomUUID().toString().take(FILE_ID_LENGTH)}.$PDF_EXTENSION"
+        return "$base-${UUID.randomUUID()}.$PDF_EXTENSION"
     }
 
-    private suspend fun prependRecent(book: Book) {
-        updateBooks { currentBooks ->
-            listOf(book) + currentBooks.filterNot { it.uri == book.uri }
-        }
-    }
+    private fun isInside(
+        file: File,
+        directory: File,
+    ): Boolean =
+        runCatching {
+            file.canonicalPath.startsWith(directory.canonicalPath + File.separator)
+        }.getOrDefault(false)
 
-    private fun readBooks(): List<Book> = decodeBooks(prefs.getString(RECENTS_KEY, null))
+    private fun readBooks(): List<Book> {
+        val books = decodeBooks(prefs.getString(BOOKS_KEY, null))
+        val legacyProgress = appContext.getSharedPreferences(PROGRESS_PREFS_NAME, Context.MODE_PRIVATE)
+        if (legacyProgress.all.isEmpty()) return books
+        val migrated =
+            books.map { book ->
+                val key = "${stableId(book.uri)}_"
+                if (legacyProgress.contains("$key$PAGE_SUFFIX")) {
+                    book.copy(
+                        lastPage = legacyProgress.getInt("$key$PAGE_SUFFIX", book.lastPage),
+                        pageCount = legacyProgress.getInt("$key$COUNT_SUFFIX", book.pageCount),
+                        lastOpenedAt = legacyProgress.getLong("$key$OPENED_AT_SUFFIX", book.lastOpenedAt),
+                    )
+                } else {
+                    book
+                }
+            }
+        prefs.edit().putString(BOOKS_KEY, encodeBooks(migrated)).commit()
+        legacyProgress.edit().clear().commit()
+        return migrated
+    }
 
     private fun decodeBooks(json: String?): List<Book> {
-        val entries = emptyList<Book>().toMutableList()
-        val array = runCatching { JSONArray(json ?: "[]") }.getOrNull()
-        if (array != null) {
-            for (index in 0 until array.length()) {
-                entries += decodeBook(array.optJSONObject(index))
+        val entries =
+            try {
+                bookJson.parseToJsonElement(json ?: "[]") as? JsonArray ?: return emptyList()
+            } catch (_: SerializationException) {
+                return emptyList()
             }
-        }
-        return entries
-    }
-
-    private fun decodeBook(entry: JSONObject?): Book =
-        Book(
-            uri = entry?.optString(BOOK_URI) ?: "",
-            cachedPath = entry?.optString(BOOK_CACHED_PATH) ?: "",
-            title = entry?.optString(BOOK_TITLE) ?: "",
-            lastPage = entry?.optInt(BOOK_LAST_PAGE) ?: 0,
-            pageCount = entry?.optInt(BOOK_PAGE_COUNT) ?: 0,
-            lastOpenedAt = entry?.optLong(BOOK_LAST_OPENED_AT) ?: 0,
-            inLibrary = entry?.optBoolean(BOOK_IN_LIBRARY) ?: false,
-            starred = entry?.optBoolean(BOOK_STARRED) ?: false,
-        )
-
-    private fun encodeBooks(books: List<Book>): String =
-        JSONArray()
-            .apply {
-                books.forEach { book ->
-                    put(
-                        JSONObject()
-                            .put(BOOK_URI, book.uri)
-                            .put(BOOK_CACHED_PATH, book.cachedPath)
-                            .put(BOOK_TITLE, book.title)
-                            .put(BOOK_LAST_PAGE, book.lastPage)
-                            .put(BOOK_PAGE_COUNT, book.pageCount)
-                            .put(BOOK_LAST_OPENED_AT, book.lastOpenedAt)
-                            .put(BOOK_IN_LIBRARY, book.inLibrary)
-                            .put(BOOK_STARRED, book.starred),
+        return entries.mapNotNull { entry ->
+            runCatching { bookJson.decodeFromJsonElement<Book>(entry) }
+                .getOrNull()
+                ?.takeIf { it.uri.isNotBlank() && it.cachedPath.isNotBlank() }
+                ?.let { book ->
+                    book.copy(
+                        title = book.title.takeIf(String::isNotBlank) ?: DEFAULT_BOOK_TITLE,
+                        lastPage = book.lastPage.coerceAtLeast(0),
+                        pageCount = book.pageCount.coerceAtLeast(0),
+                        lastOpenedAt = book.lastOpenedAt.coerceAtLeast(0),
                     )
                 }
-            }.toString()
+        }
+    }
 
-    private fun coverName(book: Book): String = Integer.toHexString(book.uri.hashCode())
+    private fun encodeBooks(books: List<Book>): String = bookJson.encodeToString(books)
+
+    private fun stableId(value: String): String =
+        // Keep existing thumbnail names stable and avoid collisions across URI values.
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
     private companion object {
         const val PREFS_NAME = "kitab_books"
-        const val RECENTS_KEY = "recent_books"
-        const val LIBRARY_DIR = "Kitab"
-        const val OPENED_DIR = "opened"
-        const val COVERS_DIR = "covers"
+        const val PROGRESS_PREFS_NAME = "kitab_book_progress"
+        const val BOOKS_KEY = "recent_books"
+        const val BOOKS_DIR = "books"
+        const val THUMBNAILS_DIR = "thumbnails"
         const val PDF_EXTENSION = "pdf"
-        const val COVER_EXTENSION = "png"
-        const val COVER_WIDTH_PX = 300
+        const val THUMBNAIL_EXTENSION = "png"
+        const val THUMBNAIL_WIDTH_PX = 300
         const val DEFAULT_BOOK_TITLE = "Book"
         const val MAX_FILE_NAME_LENGTH = 48
-        const val FILE_ID_LENGTH = 8
+        const val PAGE_SUFFIX = "page"
+        const val COUNT_SUFFIX = "count"
+        const val OPENED_AT_SUFFIX = "opened_at"
         val ILLEGAL_FILE_NAME_CHARACTERS = Regex("[^A-Za-z0-9 ._-]")
-        const val BOOK_URI = "uri"
-        const val BOOK_CACHED_PATH = "cachedPath"
-        const val BOOK_TITLE = "title"
-        const val BOOK_LAST_PAGE = "lastPage"
-        const val BOOK_PAGE_COUNT = "pageCount"
-        const val BOOK_LAST_OPENED_AT = "lastOpenedAt"
-        const val BOOK_IN_LIBRARY = "inLibrary"
-        const val BOOK_STARRED = "starred"
     }
 }
