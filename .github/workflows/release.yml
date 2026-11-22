@@ -85,18 +85,30 @@ jobs:
           properties_file.chmod(0o600)
           PY
 
-      - name: Build signed release APK
+      - name: Build signed release APKs
         run: ./gradlew --no-daemon assembleRelease
 
-      - name: Attach APK to GitHub Release
+      - name: Attach APKs to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           safe_tag="${GITHUB_REF_NAME//\//-}"
-          apk_name="Kitab-${safe_tag}.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/$apk_name"
-          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/$apk_name" --clobber
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if ((${#apks[@]} == 0)); then
+            echo "No release APKs were generated." >&2
+            exit 1
+          fi
+
+          assets=()
+          for apk in "${apks[@]}"; do
+            asset="$RUNNER_TEMP/Kitab-${safe_tag}-$(basename "$apk")"
+            cp "$apk" "$asset"
+            assets+=("$asset")
+          done
+
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
 
       - name: Remove release signing files
         if: always()
