@@ -1,53 +1,84 @@
 # Kitab
 
-Kitab is a lightweight Android PDF reader with a personal library and a focused reading experience. It is built with Kotlin and Jetpack Compose, and uses MuPDF to open and render PDF documents.
+<p align="center">
+  <strong>An open-source ebook reader for Android.</strong>
+  <br />
+  Built with Kotlin, Jetpack Compose, and Material 3.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Android-green?logo=android" alt="Android" />
+  <img src="https://img.shields.io/badge/Language-Kotlin-7F52FF?logo=kotlin" alt="Kotlin" />
+  <img src="https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose" alt="Jetpack Compose" />
+  <img src="https://img.shields.io/badge/Design-Material%203-757575" alt="Material 3" />
+  <img src="https://img.shields.io/badge/Status-Beta-orange" alt="Beta" />
+  <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="AGPL 3.0" />
+</p>
+
+## About
+
+Kitab is an open-source ebook reader for Android. It currently supports PDF documents, with additional ebook formats planned for the future.
 
 ## Features
 
-- Open PDF files from the device or through Android's open-with flow.
-- Keep PDFs in the Kitab library and find recently opened books.
-- Search and filter the recent and library collections, and star books for quick access.
-- Read with horizontal or vertical page navigation, a page slider, and pinch-to-zoom up to 10×.
-- Select and copy or share text, and confirm before opening links in a PDF.
-- Choose light, dark, or system theme, with Android dynamic colors or a custom Material 3 color.
-- Adjust page tone, reading direction, resume behavior, selection color, and reader controls.
+- **PDF reading:** Read PDF documents using MuPDF.
+- **Book library:** Organize and manage your books.
+- **Reading progress:** Keep track of your reading progress.
+- **Offline reading:** Read your documents without an internet connection.
+- **Modern interface:** Built with Material 3 and Jetpack Compose.
+
+## Planned
+
+- EPUB support.
+- Additional ebook formats.
+- More reading and customization features.
+
+## Technology stack
+
+| Technology | Purpose |
+| --- | --- |
+| Kotlin | Primary programming language |
+| Jetpack Compose | UI framework |
+| Material 3 | Design system |
+| Material 3 Expressive | UI components and design |
+| MuPDF | PDF rendering engine |
 
 ## Requirements
 
-- Android 7.0 (API 24) or newer.
-- Android Studio with JDK 17 and Android SDK Platform 37 to build from source.
+- Android 7.0 (API 24) or higher.
+- An Android device or emulator.
 
-## Build
+## Installation
 
-Open this project in Android Studio and run the `app` configuration, or build a debug APK from the project root:
+### Download
 
-```sh
-./gradlew assembleDebug
-```
+Download the latest available APK from [GitHub Releases](https://github.com/roshansoni-io/kitab/releases).
 
-The APK is written to `app/build/outputs/apk/debug/`.
+### Build from source
 
-## Release signing
+1. Clone the repository:
 
-Release APKs and bundles must be signed with a configured release key. Put `storeFile`, `storePassword`, `keyAlias`, and `keyPassword` in the ignored local `keystore.properties` file. The release build fails if the keystore file or any signing property is missing; it never falls back to the Android debug key. Keep the keystore and its passwords out of source control.
+   ```sh
+   git clone https://github.com/roshansoni-io/kitab.git
+   cd kitab
+   ./gradlew assembleDebug
+   ```
 
-## Usage
+2. Open the project in Android Studio, allow Gradle to sync, then run the app on a device or emulator.
 
-Use **Add Book** to choose a PDF on your device. Added PDFs are stored in Kitab’s private app storage and appear in the library; opening a PDF also places it in Recent. Imported files stay private to Kitab, and the Android document picker grants access only to the PDF you select. Tap a book to read it. In the reader, swipe or use the page controls to move between pages, pinch to zoom, and tap a link to review it before opening it outside Kitab.
+## Development status
 
-Kitab currently supports PDF documents. Password-protected PDFs are not supported.
+Kitab is in beta and under active development. Features and interfaces may change as the project evolves. Contributions, suggestions, and bug reports are welcome.
 
-## Bug reports and feature requests
+## Contributing
 
-Found a bug or have an idea for Kitab? [Open an issue](https://github.com/roshansoni-io/kitab/issues) with steps to reproduce the problem or details about the feature you would like.
+Contributions are welcome. For major changes, open an issue first to discuss the proposal. For smaller changes:
 
-If Kitab is useful to you, please [star the repository](https://github.com/roshansoni-io/kitab) to support the project.
+1. Fork the repository.
+2. Create a branch for your changes.
+3. Make and commit your changes.
+4. Submit a pull request.
 
 ## License
 
-Kitab is licensed under the GNU Affero General Public License, version 3. See [LICENSE](LICENSE) for the complete terms. MuPDF is a separate third-party component and is also distributed under its own license terms; see the in-app **Open-source licenses** information and the [MuPDF project](https://mupdf.com/).
-
-## Acknowledgements
-
-- [MuPDF](https://mupdf.com/) provides PDF document handling and rendering.
-- The project structure and feature overview follow familiar patterns used by open-source readers such as [KOReader](https://github.com/koreader/koreader) and [Librera Reader](https://github.com/foobnix/LibreraReader). Kitab is an independent project.
+Kitab is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See the [LICENSE](LICENSE) file for details.
