@@ -51,7 +51,14 @@ internal fun ReaderRoute(
 
     ReaderScreen(
         book = book,
-        resumePage = if (settings.resumeBehavior == io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior.Resume) book.lastPage else 0,
+        resumePage =
+            if (settings.resumeBehavior ==
+                io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior.Resume
+            ) {
+                book.lastPage
+            } else {
+                0
+            },
         settings = settings,
         onProgress = { page, pageCount -> onProgressChanged(book.uri, page, pageCount) },
         onBack = onBack,

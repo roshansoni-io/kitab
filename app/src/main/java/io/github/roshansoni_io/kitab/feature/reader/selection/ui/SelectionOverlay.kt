@@ -10,7 +10,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -22,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.feature.reader.selection.PageText
 import io.github.roshansoni_io.kitab.feature.reader.selection.SelectionHandle
 import kotlin.math.min
@@ -137,9 +137,10 @@ private fun DrawScope.drawSelectionHandle(
 }
 
 internal val SelectionColor.composeColor: Color
-    get() = when (this) {
-        SelectionColor.Blue -> Color(0xFF2196F3)
-        SelectionColor.Amber -> Color(0xFFFFB300)
-        SelectionColor.Green -> Color(0xFF43A047)
-        SelectionColor.Rose -> Color(0xFFE65175)
-    }
+    get() =
+        when (this) {
+            SelectionColor.Blue -> Color(0xFF2196F3)
+            SelectionColor.Amber -> Color(0xFFFFB300)
+            SelectionColor.Green -> Color(0xFF43A047)
+            SelectionColor.Rose -> Color(0xFFE65175)
+        }

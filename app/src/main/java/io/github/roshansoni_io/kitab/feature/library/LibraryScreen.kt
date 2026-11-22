@@ -9,6 +9,7 @@ import io.github.roshansoni_io.kitab.core.ui.components.AddBookFab
 import io.github.roshansoni_io.kitab.core.ui.components.BookHeader
 import io.github.roshansoni_io.kitab.core.ui.components.RemoveBookDialog
 import io.github.roshansoni_io.kitab.feature.library.components.LibraryContent
+import io.github.roshansoni_io.kitab.feature.library.components.LibraryViewMenuItems
 
 @Composable
 internal fun LibraryScreen(
@@ -18,8 +19,10 @@ internal fun LibraryScreen(
     onSearchVisibilityChanged: (Boolean) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onOpenBook: (Book) -> Unit,
+    onCoverRequested: (Book) -> Unit,
     onAddBook: () -> Unit,
     onStarRequested: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRemoveRequested: (Book) -> Unit,
     onRemovalConfirmed: () -> Unit,
     onRemovalDismissed: () -> Unit,
@@ -32,6 +35,13 @@ internal fun LibraryScreen(
                 query = uiState.searchQuery,
                 onSearchActiveChange = onSearchVisibilityChanged,
                 onQueryChange = onSearchQueryChanged,
+                overflowMenuContent = { onDismissRequest ->
+                    LibraryViewMenuItems(
+                        isListView = uiState.isListView,
+                        onViewSelected = onListViewChanged,
+                        onDismissRequest = onDismissRequest,
+                    )
+                },
             )
         },
         floatingActionButton = { AddBookFab(onClick = onAddBook) },
@@ -40,9 +50,10 @@ internal fun LibraryScreen(
             uiState = uiState,
             contentPadding = contentPadding,
             onFilterSelected = onFilterChanged,
-            onListViewChanged = onListViewChanged,
             onOpenBook = onOpenBook,
+            onCoverRequested = onCoverRequested,
             onToggleStar = onStarRequested,
+            onAddToLibrary = onAddToLibrary,
             onRequestRemove = onRemoveRequested,
         )
     }

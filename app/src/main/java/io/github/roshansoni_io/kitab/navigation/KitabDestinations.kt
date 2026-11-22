@@ -7,7 +7,7 @@ import io.github.roshansoni_io.kitab.R
 internal enum class KitabTab(
     val route: String,
     val label: String,
-    @DrawableRes val iconResource: Int,
+    @param:DrawableRes val iconResource: Int,
 ) {
     Recent("recent", "Recent", R.drawable.ic_clock),
     Library("library", "Library", R.drawable.ic_home),

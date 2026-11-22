@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
-import io.github.roshansoni_io.kitab.feature.reader.selection.ui.composeColor
 import io.github.roshansoni_io.kitab.feature.reader.document.LinkTarget
 import io.github.roshansoni_io.kitab.feature.reader.document.ReaderBook
 import io.github.roshansoni_io.kitab.feature.reader.render.PageGeometry
@@ -64,6 +63,7 @@ import io.github.roshansoni_io.kitab.feature.reader.selection.ui.SELECTION_HANDL
 import io.github.roshansoni_io.kitab.feature.reader.selection.ui.SelectionHandles
 import io.github.roshansoni_io.kitab.feature.reader.selection.ui.SelectionOverlay
 import io.github.roshansoni_io.kitab.feature.reader.selection.ui.SelectionToolbar
+import io.github.roshansoni_io.kitab.feature.reader.selection.ui.composeColor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -455,7 +455,10 @@ private fun ReaderPageLoading() {
 @Composable
 private fun ReaderPageError() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "This page could not be rendered.", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = "This page could not be rendered.",
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
 

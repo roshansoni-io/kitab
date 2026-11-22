@@ -3,21 +3,20 @@ package io.github.roshansoni_io.kitab.core.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.core.data.model.Book
+import io.github.roshansoni_io.kitab.core.platform.sharePdfFile
 
 @Composable
 internal fun BookMenuButton(
@@ -25,18 +24,20 @@ internal fun BookMenuButton(
     book: Book,
     onExpandedChange: (Boolean) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
     isCompact: Boolean = false,
 ) {
+    val context = LocalContext.current
     Box(modifier = modifier) {
         FilledTonalIconButton(
             onClick = { onExpandedChange(true) },
             modifier = if (isCompact) Modifier.size(32.dp) else Modifier,
             colors =
                 IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.Black,
                 ),
         ) {
             Icon(
@@ -48,28 +49,23 @@ internal fun BookMenuButton(
         DropdownMenu(expanded = isExpanded, onDismissRequest = { onExpandedChange(false) }) {
             DropdownMenuItem(
                 text = { Text(text = if (book.starred) "Remove star" else "Star book") },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(if (book.starred) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark),
-                        contentDescription = null,
-                    )
-                },
                 onClick = {
                     onExpandedChange(false)
                     onToggleStar(book)
                 },
             )
             DropdownMenuItem(
-                text = { Text(text = "Remove from library") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = null,
-                    )
-                },
+                text = { Text(text = if (book.inLibrary) "Remove from library" else "Add to library") },
                 onClick = {
                     onExpandedChange(false)
-                    onRequestRemove(book)
+                    if (book.inLibrary) onRequestRemove(book) else onAddToLibrary(book)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Send file") },
+                onClick = {
+                    onExpandedChange(false)
+                    sharePdfFile(context, book.cachedPath, book.title)
                 },
             )
         }

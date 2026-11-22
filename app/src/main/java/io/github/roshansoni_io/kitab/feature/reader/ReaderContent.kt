@@ -21,15 +21,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.feature.reader.document.ReaderBook
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.feature.reader.document.ReaderBook
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -64,12 +64,13 @@ internal fun ReaderContent(
     val scope = rememberCoroutineScope()
     var pendingLinkUri by remember { mutableStateOf<String?>(null) }
     var chromeVisible by remember { mutableStateOf(settings.readerControlsInitiallyVisible) }
-    val pageBackground = when (settings.readerPageTone) {
-        ReaderPageTone.Theme -> MaterialTheme.colorScheme.background
-        ReaderPageTone.Paper -> Color(0xFFFFFFFF)
-        ReaderPageTone.Warm -> Color(0xFFFFF1D6)
-        ReaderPageTone.Dark -> Color(0xFF171717)
-    }
+    val pageBackground =
+        when (settings.readerPageTone) {
+            ReaderPageTone.Theme -> MaterialTheme.colorScheme.background
+            ReaderPageTone.Paper -> Color(0xFFFFFFFF)
+            ReaderPageTone.Warm -> Color(0xFFFFF1D6)
+            ReaderPageTone.Dark -> Color(0xFF171717)
+        }
     val backgroundColorArgb = pageBackground.toArgb()
     val latestOnProgress by rememberUpdatedState(onProgress)
 
@@ -170,7 +171,7 @@ internal fun ReaderContent(
                     viewportSize = { viewportSize.value },
                     backgroundColor = pageBackground,
                     selectionColor = settings.selectionColor,
-                    maximumZoom = settings.maximumZoom,
+                    maximumZoom = ZoomState.MAX_SCALE,
                     onZoomStateRegistered = { zoomState ->
                         if (zoomState == null) {
                             zoomStates.remove(pageIndex)

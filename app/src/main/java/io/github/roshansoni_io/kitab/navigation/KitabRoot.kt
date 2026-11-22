@@ -70,20 +70,31 @@ fun KitabRoot(
     LaunchedEffect(viewModel, navController, showSnackbar) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                KitabEffect.OpenDocumentPicker -> documentPicker.launch(arrayOf("application/pdf"))
+                KitabEffect.OpenDocumentPicker -> {
+                    documentPicker.launch(arrayOf("application/pdf"))
+                }
+
                 KitabEffect.OpenStorageAccessSettings -> {
                     launchLibraryAccessSettings(context, settingsLauncher)
                 }
+
                 KitabEffect.RequestLegacyPermission -> {
                     permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 }
+
                 is KitabEffect.NavigateToReader -> {
                     navController.navigate(KitabDestinations.reader(effect.bookUri)) {
                         launchSingleTop = true
                     }
                 }
-                is KitabEffect.OpenExternalLink -> openExternalLink(context, effect.url)
-                is KitabEffect.ShowSnackbar -> showSnackbar(effect.message)
+
+                is KitabEffect.OpenExternalLink -> {
+                    openExternalLink(context, effect.url)
+                }
+
+                is KitabEffect.ShowSnackbar -> {
+                    showSnackbar(effect.message)
+                }
             }
         }
     }
@@ -175,18 +186,23 @@ fun KitabRoot(
                 onDismiss = { viewModel.onEvent(KitabEvent.DismissDialog) },
             )
         }
+
         KitabDialog.ImportFailed -> {
             ImportFailedDialog(
                 message = "This PDF could not be added to your library.",
                 onDismiss = { viewModel.onEvent(KitabEvent.DismissDialog) },
             )
         }
+
         KitabDialog.OpenBookFailed -> {
             ImportFailedDialog(
                 message = "This book could not be opened.",
                 onDismiss = { viewModel.onEvent(KitabEvent.DismissDialog) },
             )
         }
-        null -> Unit
+
+        null -> {
+            Unit
+        }
     }
 }

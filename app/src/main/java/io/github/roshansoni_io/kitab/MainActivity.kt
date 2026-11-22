@@ -17,9 +17,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.roshansoni_io.kitab.core.di.AppContainer
-import io.github.roshansoni_io.kitab.navigation.KitabRoot
 import io.github.roshansoni_io.kitab.core.ui.theme.KitabTheme
 import io.github.roshansoni_io.kitab.core.ui.theme.isDarkTheme
+import io.github.roshansoni_io.kitab.navigation.KitabRoot
 
 class MainActivity : ComponentActivity() {
     private val pendingExternalBookUri = mutableStateOf<Uri?>(null)
@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
             KitabTheme(
                 themeMode = settings.themeMode,
                 dynamicColor = settings.dynamicColor,
-                appPalette = settings.appPalette,
+                customSeedColor = settings.customSeedColor,
             ) {
                 SystemBarsEffect(window = window, darkTheme = darkTheme)
                 KitabRoot(

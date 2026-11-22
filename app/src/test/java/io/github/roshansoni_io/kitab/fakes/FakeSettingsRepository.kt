@@ -3,7 +3,6 @@ package io.github.roshansoni_io.kitab.fakes
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
-import io.github.roshansoni_io.kitab.core.data.model.AppPalette
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
@@ -27,11 +26,11 @@ class FakeSettingsRepository(
         _settings.update { it.copy(dynamicColor = enabled) }
     }
 
-    override fun setAppPalette(palette: AppPalette) = _settings.update { it.copy(appPalette = palette, dynamicColor = false) }
+    override fun setCustomSeedColor(color: Int) = _settings.update { it.copy(customSeedColor = color, dynamicColor = false) }
+
     override fun setKeepScreenAwake(enabled: Boolean) = _settings.update { it.copy(keepScreenAwake = enabled) }
     override fun setSelectionColor(color: SelectionColor) = _settings.update { it.copy(selectionColor = color) }
     override fun setReaderPageTone(tone: ReaderPageTone) = _settings.update { it.copy(readerPageTone = tone) }
-    override fun setMaximumZoom(scale: Float) = _settings.update { it.copy(maximumZoom = scale.coerceIn(2f, 10f)) }
     override fun setReaderPaging(paging: ReaderPaging) = _settings.update { it.copy(readerPaging = paging) }
     override fun setResumeBehavior(behavior: ResumeBehavior) = _settings.update { it.copy(resumeBehavior = behavior) }
     override fun setReaderControlsInitiallyVisible(visible: Boolean) = _settings.update { it.copy(readerControlsInitiallyVisible = visible) }

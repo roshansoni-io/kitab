@@ -1,6 +1,8 @@
 package io.github.roshansoni_io.kitab.core.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,7 +27,10 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -45,7 +51,9 @@ internal fun BookHeader(
     onSearchActiveChange: (Boolean) -> Unit,
     onQueryChange: (String) -> Unit,
     onOverflowClick: () -> Unit = {},
+    overflowMenuContent: (@Composable ColumnScope.(onDismissRequest: () -> Unit) -> Unit)? = null,
 ) {
+    var isOverflowMenuExpanded by remember { mutableStateOf(false) }
     Column(
         modifier =
             Modifier
@@ -84,11 +92,24 @@ internal fun BookHeader(
                     onClick = { onSearchActiveChange(true) },
                 )
                 Spacer(modifier = Modifier.width(10.dp))
-                HeaderActionButton(
-                    icon = Icons.Filled.MoreVert,
-                    contentDescription = "More options",
-                    onClick = onOverflowClick,
-                )
+                Box {
+                    HeaderActionButton(
+                        icon = Icons.Filled.MoreVert,
+                        contentDescription = "More options",
+                        onClick = {
+                            onOverflowClick()
+                            isOverflowMenuExpanded = overflowMenuContent != null
+                        },
+                    )
+                    if (overflowMenuContent != null) {
+                        DropdownMenu(
+                            expanded = isOverflowMenuExpanded,
+                            onDismissRequest = { isOverflowMenuExpanded = false },
+                        ) {
+                            overflowMenuContent { isOverflowMenuExpanded = false }
+                        }
+                    }
+                }
             }
         }
     }

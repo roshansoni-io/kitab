@@ -20,10 +20,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
+import io.github.roshansoni_io.kitab.core.data.model.AppSettings
+import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.feature.reader.document.DocumentOpenException
 import io.github.roshansoni_io.kitab.feature.reader.document.ReaderBook
 import kotlinx.coroutines.Dispatchers

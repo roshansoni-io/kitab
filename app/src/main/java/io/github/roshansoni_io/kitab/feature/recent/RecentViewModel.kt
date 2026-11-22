@@ -12,6 +12,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.data.repository.BookRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal data class RecentUiState(
     val isLoading: Boolean = true,
@@ -48,12 +51,13 @@ internal class RecentViewModel(
 
     private val _effects = Channel<RecentEffect>(Channel.BUFFERED)
     val effects: Flow<RecentEffect> = _effects.receiveAsFlow()
+    private val coverRequests = mutableSetOf<String>()
+    private var sortedBooks = emptyList<Book>()
 
     init {
         viewModelScope.launch {
             bookRepository.books.collectLatest { allBooks ->
                 publishBooks(allBooks)
-                loadCovers(allBooks)
             }
         }
     }
@@ -63,11 +67,12 @@ internal class RecentViewModel(
         _uiState.update { currentState ->
             currentState.copy(
                 filter = filter,
-                books = visibleBooks(
-                    allBooks = bookRepository.books.value,
-                    filter = filter,
-                    searchQuery = currentState.searchQuery,
-                ),
+                books =
+                    visibleBooks(
+                        allBooks = sortedBooks,
+                        filter = filter,
+                        searchQuery = currentState.searchQuery,
+                    ),
             )
         }
     }
@@ -80,11 +85,12 @@ internal class RecentViewModel(
             currentState.copy(
                 isSearchActive = isVisible,
                 searchQuery = searchQuery,
-                books = visibleBooks(
-                    allBooks = bookRepository.books.value,
-                    filter = currentState.filter,
-                    searchQuery = searchQuery,
-                ),
+                books =
+                    visibleBooks(
+                        allBooks = sortedBooks,
+                        filter = currentState.filter,
+                        searchQuery = searchQuery,
+                    ),
             )
         }
     }
@@ -94,11 +100,12 @@ internal class RecentViewModel(
         _uiState.update { currentState ->
             currentState.copy(
                 searchQuery = searchQuery,
-                books = visibleBooks(
-                    allBooks = bookRepository.books.value,
-                    filter = currentState.filter,
-                    searchQuery = searchQuery,
-                ),
+                books =
+                    visibleBooks(
+                        allBooks = sortedBooks,
+                        filter = currentState.filter,
+                        searchQuery = searchQuery,
+                    ),
             )
         }
     }
@@ -106,6 +113,37 @@ internal class RecentViewModel(
     fun onStarRequested(book: Book) {
         viewModelScope.launch {
             bookRepository.setStarred(book.uri, !book.starred)
+        }
+    }
+
+    fun onCoverRequested(book: Book) {
+        if (_uiState.value.covers.containsKey(book.uri) || !coverRequests.add(book.uri)) return
+        viewModelScope.launch {
+            try {
+                val image =
+                    bookRepository.loadCover(book)?.let { bitmap ->
+                        withContext(Dispatchers.Default) { bitmap.asImageBitmap() }
+                    }
+                if (image != null) {
+                    _uiState.update { current -> current.copy(covers = current.covers + (book.uri to image)) }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // A failed cover request leaves the white placeholder visible.
+            } finally {
+                coverRequests.remove(book.uri)
+            }
+        }
+    }
+
+    fun onAddToLibrary(book: Book) {
+        viewModelScope.launch {
+            if (bookRepository.addBook(book.uri) == null) {
+                _effects.send(RecentEffect.ShowSnackbar("Could not add book to library"))
+            } else {
+                _effects.send(RecentEffect.ShowSnackbar("Added to library"))
+            }
         }
     }
 
@@ -126,32 +164,23 @@ internal class RecentViewModel(
         _uiState.update { it.copy(pendingRemoval = null) }
     }
 
-    private fun publishBooks(allBooks: List<Book>) {
+    private suspend fun publishBooks(allBooks: List<Book>) {
+        val recentBooks =
+            withContext(Dispatchers.Default) {
+                allBooks.sortedByDescending(Book::lastOpenedAt)
+            }
+        sortedBooks = recentBooks
         _uiState.update { currentState ->
             currentState.copy(
                 isLoading = false,
-                books = visibleBooks(
-                    allBooks = allBooks,
-                    filter = currentState.filter,
-                    searchQuery = currentState.searchQuery,
-                ),
+                books =
+                    visibleBooks(
+                        allBooks = recentBooks,
+                        filter = currentState.filter,
+                        searchQuery = currentState.searchQuery,
+                    ),
                 totalBookCount = allBooks.size,
             )
-        }
-    }
-
-    private suspend fun loadCovers(allBooks: List<Book>) {
-        val knownUris = allBooks.mapTo(mutableSetOf(), Book::uri)
-        _uiState.update { currentState ->
-            currentState.copy(covers = currentState.covers.filterKeys(knownUris::contains))
-        }
-        val missingBooks = allBooks.filter { it.uri !in _uiState.value.covers }
-        val loadedCovers =
-            missingBooks.mapNotNull { book ->
-                bookRepository.loadCover(book)?.let { bitmap -> book.uri to bitmap.asImageBitmap() }
-            }.toMap()
-        if (loadedCovers.isNotEmpty()) {
-            _uiState.update { currentState -> currentState.copy(covers = currentState.covers + loadedCovers) }
         }
     }
 
@@ -171,18 +200,20 @@ internal class RecentViewModel(
         filter: BookFilter,
         searchQuery: String,
     ): List<Book> {
-        val recentBooks = allBooks.sortedByDescending(Book::lastOpenedAt)
         val matchingBooks =
             if (searchQuery.isBlank()) {
-                recentBooks
+                allBooks
             } else {
                 val normalizedQuery = searchQuery.trim()
-                recentBooks.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
+                allBooks.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
             }
         return when (filter) {
             BookFilter.All,
-            BookFilter.Pdf -> matchingBooks
+            BookFilter.Pdf,
+            -> matchingBooks
+
             BookFilter.Recent -> matchingBooks.filter { it.lastOpenedAt > 0 }
+
             BookFilter.Starred -> matchingBooks.filter(Book::starred)
         }
     }

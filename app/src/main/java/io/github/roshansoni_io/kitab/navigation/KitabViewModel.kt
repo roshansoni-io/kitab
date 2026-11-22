@@ -204,9 +204,7 @@ internal class KitabViewModel(
     }
 
     companion object {
-        fun factory(
-            container: AppContainer,
-        ): ViewModelProvider.Factory =
+        fun factory(container: AppContainer): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
                     KitabViewModel(

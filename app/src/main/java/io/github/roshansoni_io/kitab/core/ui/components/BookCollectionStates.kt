@@ -63,7 +63,7 @@ internal fun EmptyFilterState(
         when (filter) {
             BookFilter.All -> "No books yet" to "Tap Add Book to start your collection."
             BookFilter.Recent -> "Nothing opened yet" to "Books you open will show up here."
-            BookFilter.Starred -> "No starred books" to "Tap the bookmark on a book to save it here."
+            BookFilter.Starred -> "No starred books" to "Tap the star on a book to save it here."
             BookFilter.Pdf -> "No PDFs found" to "Add a PDF to your library to see it here."
         }
     EmptyState(title = title, message = message, contentPadding = contentPadding)

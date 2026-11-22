@@ -17,8 +17,10 @@ internal fun RecentScreen(
     onSearchVisibilityChanged: (Boolean) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onOpenBook: (Book) -> Unit,
+    onCoverRequested: (Book) -> Unit,
     onAddBook: () -> Unit,
     onStarRequested: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRemoveRequested: (Book) -> Unit,
     onRemovalConfirmed: () -> Unit,
     onRemovalDismissed: () -> Unit,
@@ -40,7 +42,9 @@ internal fun RecentScreen(
             contentPadding = contentPadding,
             onFilterSelected = onFilterChanged,
             onOpenBook = onOpenBook,
+            onCoverRequested = onCoverRequested,
             onToggleStar = onStarRequested,
+            onAddToLibrary = onAddToLibrary,
             onRequestRemove = onRemoveRequested,
         )
     }

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -21,6 +23,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,11 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.ui.components.BookMenuButton
 import io.github.roshansoni_io.kitab.core.ui.components.CompactProgressBar
@@ -48,13 +50,18 @@ import io.github.roshansoni_io.kitab.core.ui.components.readingProgress
 internal fun LibraryBookCard(
     book: Book,
     cover: ImageBitmap?,
+    onCoverRequested: (Book) -> Unit,
     onOpenBook: (Book) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
-    val shape = MaterialTheme.shapes.large
+    LaunchedEffect(book.uri, cover) {
+        if (cover == null) onCoverRequested(book)
+    }
+    val shape = RectangleShape
     Card(
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -73,7 +80,6 @@ internal fun LibraryBookCard(
                     .aspectRatio(.72f),
         ) {
             CoverImage(
-                title = book.title,
                 cover = cover,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -82,21 +88,10 @@ internal fun LibraryBookCard(
                 book = book,
                 onExpandedChange = { isOverflowMenuExpanded = it },
                 onToggleStar = onToggleStar,
+                onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 isCompact = true,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp),
-            )
-            CompactProgressBar(
-                progress = readingProgress(book),
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
-                        .height(5.dp),
+                modifier = Modifier.align(Alignment.BottomStart),
             )
         }
     }
@@ -107,12 +102,17 @@ internal fun LibraryBookCard(
 internal fun LibraryBookRow(
     book: Book,
     cover: ImageBitmap?,
+    onCoverRequested: (Book) -> Unit,
     onOpenBook: (Book) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(book.uri, cover) {
+        if (cover == null) onCoverRequested(book)
+    }
     val shape = MaterialTheme.shapes.extraLarge
     Card(
         shape = shape,
@@ -145,7 +145,6 @@ internal fun LibraryBookRow(
             },
             leadingContent = {
                 CoverImage(
-                    title = book.title,
                     cover = cover,
                     modifier =
                         Modifier
@@ -160,6 +159,7 @@ internal fun LibraryBookRow(
                         book = book,
                         onExpandedChange = { isOverflowMenuExpanded = it },
                         onToggleStar = onToggleStar,
+                        onAddToLibrary = onAddToLibrary,
                         onRequestRemove = onRequestRemove,
                     )
                     StarButton(book = book, onToggleStar = onToggleStar)
@@ -191,7 +191,7 @@ private fun StarButton(
         modifier = modifier,
     ) {
         Icon(
-            painter = painterResource(if (book.starred) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark),
+            imageVector = Icons.Filled.Star,
             contentDescription = if (book.starred) "Remove star" else "Star book",
             tint =
                 if (book.starred) {

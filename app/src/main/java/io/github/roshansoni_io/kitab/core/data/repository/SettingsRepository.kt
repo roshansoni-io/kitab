@@ -1,6 +1,5 @@
 package io.github.roshansoni_io.kitab.core.data.repository
 
-import io.github.roshansoni_io.kitab.core.data.model.AppPalette
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
@@ -16,15 +15,13 @@ interface SettingsRepository {
 
     fun setDynamicColor(enabled: Boolean)
 
-    fun setAppPalette(palette: AppPalette)
+    fun setCustomSeedColor(color: Int)
 
     fun setKeepScreenAwake(enabled: Boolean)
 
     fun setSelectionColor(color: SelectionColor)
 
     fun setReaderPageTone(tone: ReaderPageTone)
-
-    fun setMaximumZoom(scale: Float)
 
     fun setReaderPaging(paging: ReaderPaging)
 

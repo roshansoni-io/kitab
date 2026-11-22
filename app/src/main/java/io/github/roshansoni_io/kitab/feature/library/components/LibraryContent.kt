@@ -3,7 +3,6 @@ package io.github.roshansoni_io.kitab.feature.library.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,16 +14,12 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.data.model.Book
+import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.ui.components.BookFilterRow
 import io.github.roshansoni_io.kitab.core.ui.components.EmptyFilterState
 import io.github.roshansoni_io.kitab.core.ui.components.EmptyLibraryState
@@ -37,9 +32,10 @@ internal fun LibraryContent(
     uiState: LibraryUiState,
     contentPadding: PaddingValues,
     onFilterSelected: (BookFilter) -> Unit,
-    onListViewChanged: (Boolean) -> Unit,
     onOpenBook: (Book) -> Unit,
+    onCoverRequested: (Book) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
 ) {
     when {
@@ -64,9 +60,10 @@ internal fun LibraryContent(
                 uiState = uiState,
                 contentPadding = contentPadding,
                 onFilterSelected = onFilterSelected,
-                onListViewChanged = onListViewChanged,
                 onOpenBook = onOpenBook,
+                onCoverRequested = onCoverRequested,
                 onToggleStar = onToggleStar,
+                onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
             )
         }
@@ -76,9 +73,10 @@ internal fun LibraryContent(
                 uiState = uiState,
                 contentPadding = contentPadding,
                 onFilterSelected = onFilterSelected,
-                onListViewChanged = onListViewChanged,
                 onOpenBook = onOpenBook,
+                onCoverRequested = onCoverRequested,
                 onToggleStar = onToggleStar,
+                onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
             )
         }
@@ -90,9 +88,10 @@ private fun LibraryGrid(
     uiState: LibraryUiState,
     contentPadding: PaddingValues,
     onFilterSelected: (BookFilter) -> Unit,
-    onListViewChanged: (Boolean) -> Unit,
     onOpenBook: (Book) -> Unit,
+    onCoverRequested: (Book) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
@@ -113,15 +112,16 @@ private fun LibraryGrid(
             LibraryHeaderSection(
                 uiState = uiState,
                 onFilterSelected = onFilterSelected,
-                onListViewChanged = onListViewChanged,
             )
         }
         items(uiState.books, key = Book::uri) { book ->
             LibraryBookCard(
                 book = book,
                 cover = uiState.covers[book.uri],
+                onCoverRequested = onCoverRequested,
                 onOpenBook = onOpenBook,
                 onToggleStar = onToggleStar,
+                onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
             )
         }
@@ -133,9 +133,10 @@ private fun LibraryBookList(
     uiState: LibraryUiState,
     contentPadding: PaddingValues,
     onFilterSelected: (BookFilter) -> Unit,
-    onListViewChanged: (Boolean) -> Unit,
     onOpenBook: (Book) -> Unit,
+    onCoverRequested: (Book) -> Unit,
     onToggleStar: (Book) -> Unit,
+    onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
@@ -154,15 +155,16 @@ private fun LibraryBookList(
             LibraryHeaderSection(
                 uiState = uiState,
                 onFilterSelected = onFilterSelected,
-                onListViewChanged = onListViewChanged,
             )
         }
         items(uiState.books, key = Book::uri) { book ->
             LibraryBookRow(
                 book = book,
                 cover = uiState.covers[book.uri],
+                onCoverRequested = onCoverRequested,
                 onOpenBook = onOpenBook,
                 onToggleStar = onToggleStar,
+                onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
             )
         }
@@ -173,38 +175,12 @@ private fun LibraryBookList(
 private fun LibraryHeaderSection(
     uiState: LibraryUiState,
     onFilterSelected: (BookFilter) -> Unit,
-    onListViewChanged: (Boolean) -> Unit,
 ) {
     Column {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Your Library",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "${uiState.totalBookCount} books in your collection",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            LibraryViewToggle(isListView = uiState.isListView, onToggle = onListViewChanged)
-        }
         BookFilterRow(
             selectedFilter = uiState.filter,
             onSelectFilter = onFilterSelected,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 18.dp),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

@@ -2,7 +2,6 @@ package io.github.roshansoni_io.kitab.core.data.repository
 
 import android.app.Application
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
-import io.github.roshansoni_io.kitab.core.data.model.AppPalette
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
@@ -29,6 +28,7 @@ class SharedPreferencesSettingsRepositoryTest {
 
         assertEquals(ThemeMode.System, settings.themeMode)
         assertTrue(settings.dynamicColor)
+        assertEquals(0xFF6750A4.toInt(), settings.customSeedColor)
     }
 
     @Test
@@ -37,11 +37,10 @@ class SharedPreferencesSettingsRepositoryTest {
 
         repository.setThemeMode(ThemeMode.Dark)
         repository.setDynamicColor(false)
-        repository.setAppPalette(AppPalette.Ocean)
+        repository.setCustomSeedColor(0xFF008577.toInt())
         repository.setKeepScreenAwake(true)
         repository.setSelectionColor(SelectionColor.Rose)
         repository.setReaderPageTone(ReaderPageTone.Warm)
-        repository.setMaximumZoom(8f)
         repository.setReaderPaging(ReaderPaging.Vertical)
         repository.setResumeBehavior(ResumeBehavior.Beginning)
         repository.setReaderControlsInitiallyVisible(false)
@@ -53,11 +52,10 @@ class SharedPreferencesSettingsRepositoryTest {
         val reloaded = SharedPreferencesSettingsRepository(application).settings.value
         assertEquals(ThemeMode.Dark, reloaded.themeMode)
         assertFalse(reloaded.dynamicColor)
-        assertEquals(AppPalette.Ocean, reloaded.appPalette)
+        assertEquals(0xFF008577.toInt(), reloaded.customSeedColor)
         assertTrue(reloaded.keepScreenAwake)
         assertEquals(SelectionColor.Rose, reloaded.selectionColor)
         assertEquals(ReaderPageTone.Warm, reloaded.readerPageTone)
-        assertEquals(8f, reloaded.maximumZoom)
         assertEquals(ReaderPaging.Vertical, reloaded.readerPaging)
         assertEquals(ResumeBehavior.Beginning, reloaded.resumeBehavior)
         assertFalse(reloaded.readerControlsInitiallyVisible)

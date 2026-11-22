@@ -1,4 +1,3 @@
-import java.io.File
 import java.util.Properties
 
 plugins {
@@ -13,6 +12,16 @@ val releaseKeystoreProperties =
             file.inputStream().use { load(it) }
         }
     }
+
+val releaseStoreFile = releaseKeystoreProperties.getProperty("storeFile")?.let { rootProject.file(it) }
+val releaseStorePassword = releaseKeystoreProperties.getProperty("storePassword")
+val releaseKeyAlias = releaseKeystoreProperties.getProperty("keyAlias")
+val releaseKeyPassword = releaseKeystoreProperties.getProperty("keyPassword")
+val hasReleaseSigningConfig =
+    releaseStoreFile?.isFile == true &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "io.github.roshansoni_io.kitab"
@@ -37,19 +46,12 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val configuredStoreFile = releaseKeystoreProperties.getProperty("storeFile")
-            if (configuredStoreFile != null) {
-                storeFile = rootProject.file(configuredStoreFile)
-                storePassword = releaseKeystoreProperties.getProperty("storePassword")
-                keyAlias = releaseKeystoreProperties.getProperty("keyAlias")
-                keyPassword = releaseKeystoreProperties.getProperty("keyPassword")
-            } else {
-                // Keep release builds installable on machines without a release key.
-                storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
@@ -68,7 +70,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -86,6 +90,16 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+tasks.configureEach {
+    if (name == "packageRelease" || name == "bundleRelease") {
+        doFirst {
+            check(hasReleaseSigningConfig) {
+                "Configure release signing in keystore.properties before building a release APK or bundle."
+            }
+        }
     }
 }
 
@@ -119,6 +133,7 @@ dependencies {
     ktlint(libs.ktlint.cli)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.tracing)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -133,6 +148,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.material.kolor)
     implementation(libs.androidx.compose.material.icons.core)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

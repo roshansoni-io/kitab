@@ -17,9 +17,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.feature.reader.selection.TextSelection
 import io.github.roshansoni_io.kitab.feature.reader.selection.ui.SelectionOverlay
-import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import kotlin.math.roundToInt
 
 /**

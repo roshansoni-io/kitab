@@ -3,7 +3,7 @@ package io.github.roshansoni_io.kitab.feature.reader.document
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.LruCache
-import androidx.core.os.trace
+import androidx.tracing.Trace
 import io.github.roshansoni_io.kitab.feature.reader.selection.PageText
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -71,10 +71,13 @@ class ReaderBook private constructor(
                 inFlightRenders.getOrPut(cacheKey) {
                     closeScope.async {
                         ensureOpen()
-                        trace("Kitab.pageRender p$pageIndex w$targetWidthPx") {
+                        Trace.beginSection("Kitab.pageRender p$pageIndex w$targetWidthPx")
+                        try {
                             document
                                 .renderPage(pageIndex, targetWidthPx, backgroundColor)
                                 .also { pageCache.put(cacheKey, it) }
+                        } finally {
+                            Trace.endSection()
                         }
                     }
                 }
