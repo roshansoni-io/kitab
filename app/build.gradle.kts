@@ -1,4 +1,5 @@
 import java.util.Properties
+import io.github.roshansoni_io.kitab.gradle.ValidateReleaseSigningTask
 
 plugins {
     alias(libs.plugins.android.application)
@@ -94,13 +95,14 @@ android {
     }
 }
 
+val validateReleaseSigning =
+    tasks.register<ValidateReleaseSigningTask>("validateReleaseSigning") {
+        signingConfigured.set(hasReleaseSigningConfig)
+    }
+
 tasks.configureEach {
     if (name == "packageRelease" || name == "bundleRelease") {
-        doFirst {
-            check(hasReleaseSigningConfig) {
-                "Configure release signing in keystore.properties before building a release APK or bundle."
-            }
-        }
+        dependsOn(validateReleaseSigning)
     }
 }
 
