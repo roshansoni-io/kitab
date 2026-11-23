@@ -3,6 +3,7 @@ package io.github.roshansoni_io.kitab.core.data.repository
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
@@ -24,6 +25,8 @@ interface SettingsRepository {
     fun setReaderPageTone(tone: ReaderPageTone)
 
     fun setReaderPaging(paging: ReaderPaging)
+
+    fun setReaderTextSize(size: ReaderTextSize)
 
     fun setResumeBehavior(behavior: ResumeBehavior)
 

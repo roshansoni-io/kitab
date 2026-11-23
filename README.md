@@ -17,11 +17,12 @@
 
 ## About
 
-Kitab is an open-source ebook reader for Android. It currently supports PDF documents, with additional ebook formats planned for the future.
+Kitab is an open-source ebook reader for Android. It supports PDF and EPUB documents, with additional ebook formats planned for the future.
 
 ## Features
 
 - **PDF reading:** Read PDF documents using MuPDF.
+- **EPUB reading:** Read reflowable EPUB books with adjustable text size and reading themes using Readium.
 - **Book library:** Organize and manage your books.
 - **Reading progress:** Keep track of your reading progress.
 - **Offline reading:** Read your documents without an internet connection.
@@ -29,7 +30,6 @@ Kitab is an open-source ebook reader for Android. It currently supports PDF docu
 
 ## Planned
 
-- EPUB support.
 - Additional ebook formats.
 - More reading and customization features.
 
@@ -42,6 +42,7 @@ Kitab is an open-source ebook reader for Android. It currently supports PDF docu
 | Material 3 | Design system |
 | Material 3 Expressive | UI components and design |
 | MuPDF | PDF rendering engine |
+| Readium Kotlin Toolkit | EPUB parsing and rendering |
 
 ## Requirements
 

@@ -18,16 +18,28 @@ internal fun ProgressBar(
     )
 }
 
-internal fun readingProgress(book: Book): Float =
-    if (book.pageCount <= 0) {
-        0f
-    } else {
-        (book.lastPage.toFloat() / book.pageCount).coerceIn(0f, 1f)
+internal fun readingProgress(book: Book): Float {
+    val epubProgress = book.epubProgress
+    if (epubProgress != null) {
+        return epubProgress.toFloat().coerceIn(0f, 1f)
     }
+    if (book.pageCount <= 0) {
+        return 0f
+    }
+    return (book.lastPage.toFloat() / book.pageCount).coerceIn(0f, 1f)
+}
 
-internal fun progressLabel(book: Book): String =
-    if (book.pageCount <= 0) {
-        "Ready to read"
-    } else {
-        "Page ${book.lastPage + 1} / ${book.pageCount} · ${(readingProgress(book) * 100).toInt()}%"
+internal fun progressLabel(book: Book): String {
+    val epubProgress = book.epubProgress
+    if (epubProgress != null) {
+        return if (epubProgress > 0.0) {
+            "${(epubProgress * 100).toInt()}% read"
+        } else {
+            "Ready to read"
+        }
     }
+    if (book.pageCount <= 0) {
+        return "Ready to read"
+    }
+    return "Page ${book.lastPage + 1} / ${book.pageCount} · ${(readingProgress(book) * 100).toInt()}%"
+}

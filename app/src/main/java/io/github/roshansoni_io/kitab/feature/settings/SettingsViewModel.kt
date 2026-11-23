@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
@@ -26,6 +27,7 @@ internal data class SettingsUiState(
     val selectionColor: SelectionColor = SelectionColor.Blue,
     val readerPageTone: ReaderPageTone = ReaderPageTone.Theme,
     val readerPaging: ReaderPaging = ReaderPaging.Horizontal,
+    val readerTextSize: ReaderTextSize = ReaderTextSize.Medium,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,
     val readerControlsInitiallyVisible: Boolean = true,
 )
@@ -59,6 +61,10 @@ internal sealed interface SettingsEvent {
         val value: ReaderPaging,
     ) : SettingsEvent
 
+    data class SetReaderTextSize(
+        val value: ReaderTextSize,
+    ) : SettingsEvent
+
     data class SetResumeBehavior(
         val value: ResumeBehavior,
     ) : SettingsEvent
@@ -85,6 +91,7 @@ internal class SettingsViewModel(
                     selectionColor = settings.selectionColor,
                     readerPageTone = settings.readerPageTone,
                     readerPaging = settings.readerPaging,
+                    readerTextSize = settings.readerTextSize,
                     resumeBehavior = settings.resumeBehavior,
                     readerControlsInitiallyVisible = settings.readerControlsInitiallyVisible,
                 )
@@ -101,6 +108,7 @@ internal class SettingsViewModel(
                         selectionColor = initial.selectionColor,
                         readerPageTone = initial.readerPageTone,
                         readerPaging = initial.readerPaging,
+                        readerTextSize = initial.readerTextSize,
                         resumeBehavior = initial.resumeBehavior,
                         readerControlsInitiallyVisible = initial.readerControlsInitiallyVisible,
                     ),
@@ -115,6 +123,7 @@ internal class SettingsViewModel(
             is SettingsEvent.SetSelectionColor -> repository.setSelectionColor(event.value)
             is SettingsEvent.SetPageTone -> repository.setReaderPageTone(event.value)
             is SettingsEvent.SetPaging -> repository.setReaderPaging(event.value)
+            is SettingsEvent.SetReaderTextSize -> repository.setReaderTextSize(event.value)
             is SettingsEvent.SetResumeBehavior -> repository.setResumeBehavior(event.value)
             is SettingsEvent.SetControlsInitiallyVisible -> repository.setReaderControlsInitiallyVisible(event.value)
         }

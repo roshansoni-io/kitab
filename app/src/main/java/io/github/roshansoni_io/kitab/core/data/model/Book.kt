@@ -9,6 +9,8 @@ data class Book(
     val title: String,
     val lastPage: Int = 0,
     val pageCount: Int = 0,
+    val epubLocator: String? = null,
+    val epubProgress: Double? = null,
     val lastOpenedAt: Long = 0,
     val inLibrary: Boolean = false,
     val starred: Boolean = false,

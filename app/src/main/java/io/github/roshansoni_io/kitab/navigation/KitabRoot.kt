@@ -104,7 +104,7 @@ fun KitabRoot(
                     container = container,
                     source = BookCollectionSource.Recent,
                     onOpenBook = { uri -> viewModel.onEvent(KitabEvent.OpenBookRequested(uri)) },
-                    onAddBook = { documentPicker.launch(arrayOf("application/pdf")) },
+                    onAddBook = { documentPicker.launch(BOOK_MIME_TYPES) },
                     onShowSnackbar = showSnackbar,
                 )
             }
@@ -113,7 +113,7 @@ fun KitabRoot(
                     container = container,
                     source = BookCollectionSource.Library,
                     onOpenBook = { uri -> viewModel.onEvent(KitabEvent.OpenBookRequested(uri)) },
-                    onAddBook = { documentPicker.launch(arrayOf("application/pdf")) },
+                    onAddBook = { documentPicker.launch(BOOK_MIME_TYPES) },
                     onShowSnackbar = showSnackbar,
                 )
             }
@@ -129,6 +129,9 @@ fun KitabRoot(
                     onProgressChanged = { uri, page, pageCount ->
                         viewModel.onEvent(KitabEvent.ProgressChanged(uri, page, pageCount))
                     },
+                    onEpubProgressChanged = { uri, locatorJson, progression ->
+                        viewModel.onEvent(KitabEvent.EpubProgressChanged(uri, locatorJson, progression))
+                    },
                     onBack = { navController.popBackStack() },
                     onOpenExternalLink = { url -> openExternalLink(context, url) },
                 )
@@ -139,7 +142,7 @@ fun KitabRoot(
     when (uiState.dialog) {
         KitabDialog.ImportFailed -> {
             ImportFailedDialog(
-                message = "This PDF could not be added to your library.",
+                message = "This book could not be added to your library.",
                 onDismiss = { viewModel.onEvent(KitabEvent.DismissDialog) },
             )
         }
@@ -156,3 +159,5 @@ fun KitabRoot(
         }
     }
 }
+
+private val BOOK_MIME_TYPES = arrayOf("application/pdf", "application/epub+zip")

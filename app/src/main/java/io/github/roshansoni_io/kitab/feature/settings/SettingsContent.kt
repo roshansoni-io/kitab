@@ -55,6 +55,7 @@ import io.github.roshansoni_io.kitab.BuildConfig
 import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
@@ -152,6 +153,9 @@ internal fun SettingsContent(
                 EnumSelector("Page direction", ReaderPaging.entries, uiState.readerPaging, { it.label }) {
                     onEvent(SettingsEvent.SetPaging(it))
                 }
+                EnumSelector("Text size", ReaderTextSize.entries, uiState.readerTextSize, { it.label }) {
+                    onEvent(SettingsEvent.SetReaderTextSize(it))
+                }
                 EnumSelector("When opening a book", ResumeBehavior.entries, uiState.resumeBehavior, { it.label }) {
                     onEvent(SettingsEvent.SetResumeBehavior(it))
                 }
@@ -198,7 +202,7 @@ internal fun SettingsContent(
             SettingsSection(title = "About") {
                 SettingsItem(
                     title = "About Kitab",
-                    supporting = "PDF reader · Version ${BuildConfig.VERSION_NAME}",
+                    supporting = "PDF and EPUB reader · Version ${BuildConfig.VERSION_NAME}",
                     icon = Icons.Filled.Info,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
@@ -207,7 +211,7 @@ internal fun SettingsContent(
                 )
                 SettingsItem(
                     title = "Open-source licenses",
-                    supporting = "MuPDF, AGPL-3.0",
+                    supporting = "MuPDF, Readium",
                     icon = Icons.Filled.Lock,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
@@ -498,6 +502,13 @@ private val ThemeMode.label: String
         }
 
 private val ReaderPaging.label: String get() = name
+private val ReaderTextSize.label: String get() =
+    when (this) {
+        ReaderTextSize.Small -> "Small"
+        ReaderTextSize.Medium -> "Medium"
+        ReaderTextSize.Large -> "Large"
+        ReaderTextSize.ExtraLarge -> "Extra large"
+    }
 private val ResumeBehavior.label: String get() =
     when (this) {
         ResumeBehavior.Resume -> "Resume"
@@ -513,10 +524,10 @@ private val ReaderPageTone.label: String get() =
 private val SelectionColor.label: String get() = name
 
 private val ABOUT_TEXT =
-    "Kitab is an open-source PDF reader for Android. Import PDFs into Kitab's private app storage, " +
-        "browse your library and recent books, and read with adjustable page direction, page tone, " +
-        "text selection, and pinch-to-zoom. Appearance supports Android wallpaper colors and custom " +
-        "Material 3 seed colors.\n\n" +
+    "Kitab is an open-source PDF and EPUB reader for Android. Import books into Kitab's private app " +
+        "storage, browse your library and recent books, and read with adjustable text size, page " +
+        "direction, page tone, text selection, and pinch-to-zoom. Appearance supports Android " +
+        "wallpaper colors and custom Material 3 seed colors.\n\n" +
         "Version ${BuildConfig.VERSION_NAME}\n" +
         "Licensed under the GNU Affero General Public License, version 3.\n\n" +
         REPOSITORY_URL
@@ -524,6 +535,8 @@ private val ABOUT_TEXT =
 private const val LICENSES_TEXT =
     "PDF rendering is powered by MuPDF, Copyright (c) 2006-2026 Artifex Software, Inc., " +
         "licensed under the GNU Affero General Public License v3. " +
+        "EPUB rendering is powered by the Readium Kotlin Toolkit, Copyright (c) 2020-2026 " +
+        "Readium Foundation, licensed under the BSD 3-Clause License. " +
         "In accordance with the AGPL, the complete source code of this app is open source."
 
 private const val REPOSITORY_URL = "https://github.com/roshansoni-io/kitab"

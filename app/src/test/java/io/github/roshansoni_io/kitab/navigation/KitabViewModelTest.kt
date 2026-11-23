@@ -54,6 +54,24 @@ class KitabViewModelTest {
         assertEquals(listOf(Triple("content://book", 4, 20)), repository.progressUpdates)
     }
 
+    @Test
+    fun epubProgressChanged_isPersisted() {
+        val viewModel = createViewModel()
+
+        viewModel.onEvent(
+            KitabEvent.EpubProgressChanged(
+                bookUri = "content://book",
+                locatorJson = """{"href":"chapter1.xhtml"}""",
+                progression = 0.25,
+            ),
+        )
+
+        assertEquals(
+            listOf(Triple("content://book", """{"href":"chapter1.xhtml"}""", 0.25)),
+            repository.epubProgressUpdates,
+        )
+    }
+
     private fun createViewModel() = KitabViewModel(bookRepository = repository)
 
     private fun book() =

@@ -4,6 +4,7 @@ import android.app.Application
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import org.junit.Assert.assertEquals
@@ -29,6 +30,7 @@ class SharedPreferencesSettingsRepositoryTest {
         assertEquals(ThemeMode.System, settings.themeMode)
         assertTrue(settings.dynamicColor)
         assertEquals(0xFF6750A4.toInt(), settings.customSeedColor)
+        assertEquals(ReaderTextSize.Medium, settings.readerTextSize)
     }
 
     @Test
@@ -42,6 +44,7 @@ class SharedPreferencesSettingsRepositoryTest {
         repository.setSelectionColor(SelectionColor.Rose)
         repository.setReaderPageTone(ReaderPageTone.Warm)
         repository.setReaderPaging(ReaderPaging.Vertical)
+        repository.setReaderTextSize(ReaderTextSize.Large)
         repository.setResumeBehavior(ResumeBehavior.Beginning)
         repository.setReaderControlsInitiallyVisible(false)
         repository.setLibraryListView(true)
@@ -57,6 +60,7 @@ class SharedPreferencesSettingsRepositoryTest {
         assertEquals(SelectionColor.Rose, reloaded.selectionColor)
         assertEquals(ReaderPageTone.Warm, reloaded.readerPageTone)
         assertEquals(ReaderPaging.Vertical, reloaded.readerPaging)
+        assertEquals(ReaderTextSize.Large, reloaded.readerTextSize)
         assertEquals(ResumeBehavior.Beginning, reloaded.resumeBehavior)
         assertFalse(reloaded.readerControlsInitiallyVisible)
         assertTrue(reloaded.libraryListView)

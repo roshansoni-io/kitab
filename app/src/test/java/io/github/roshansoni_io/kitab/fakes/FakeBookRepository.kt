@@ -12,6 +12,7 @@ class FakeBookRepository : BookRepository {
     override val books: StateFlow<List<Book>> = _books.asStateFlow()
     val removedUris = mutableListOf<String>()
     val progressUpdates = mutableListOf<Triple<String, Int, Int>>()
+    val epubProgressUpdates = mutableListOf<Triple<String, String, Double>>()
 
     var addResult: Book? = null
     var openResult: Book? = null
@@ -44,6 +45,15 @@ class FakeBookRepository : BookRepository {
     ) {
         progressUpdates += Triple(uri, lastPage, pageCount)
         replace(uri) { it.copy(lastPage = lastPage, pageCount = pageCount) }
+    }
+
+    override suspend fun updateEpubProgress(
+        uri: String,
+        locatorJson: String,
+        progression: Double,
+    ) {
+        epubProgressUpdates += Triple(uri, locatorJson, progression)
+        replace(uri) { it.copy(epubLocator = locatorJson, epubProgress = progression) }
     }
 
     override suspend fun setStarred(

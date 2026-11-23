@@ -1,6 +1,6 @@
 # Kitab app package
 
-This package is the Android application's composition root. `MainActivity` configures the window and app theme, handles incoming PDF `ACTION_VIEW` intents, creates the app container, and hosts `KitabRoot`.
+This package is the Android application's composition root. `MainActivity` configures the window and app theme, handles incoming PDF and EPUB `ACTION_VIEW` intents, creates the app container, and hosts `KitabRoot`.
 
 ## Package map
 

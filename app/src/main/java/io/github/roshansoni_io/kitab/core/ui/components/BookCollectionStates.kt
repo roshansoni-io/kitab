@@ -49,7 +49,7 @@ internal fun LoadingState(
 internal fun EmptyLibraryState(contentPadding: PaddingValues) {
     EmptyState(
         title = "No books yet",
-        message = "Tap Add Book or open a PDF from another app to start your collection.",
+        message = "Tap Add Book or open a book from another app to start your collection.",
         contentPadding = contentPadding,
     )
 }

@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.platform.sharePdfFile
+import io.github.roshansoni_io.kitab.core.platform.shareBookFile
 
 @Composable
 internal fun BookMenuButton(
@@ -65,7 +65,7 @@ internal fun BookMenuButton(
                 text = { Text("Send file") },
                 onClick = {
                     onExpandedChange(false)
-                    sharePdfFile(context, book.cachedPath, book.title)
+                    shareBookFile(context, book.cachedPath, book.title)
                 },
             )
         }

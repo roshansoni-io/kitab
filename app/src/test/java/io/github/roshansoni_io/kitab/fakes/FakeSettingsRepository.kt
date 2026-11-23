@@ -5,6 +5,7 @@ import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ class FakeSettingsRepository(
     override fun setSelectionColor(color: SelectionColor) = _settings.update { it.copy(selectionColor = color) }
     override fun setReaderPageTone(tone: ReaderPageTone) = _settings.update { it.copy(readerPageTone = tone) }
     override fun setReaderPaging(paging: ReaderPaging) = _settings.update { it.copy(readerPaging = paging) }
+    override fun setReaderTextSize(size: ReaderTextSize) = _settings.update { it.copy(readerTextSize = size) }
     override fun setResumeBehavior(behavior: ResumeBehavior) = _settings.update { it.copy(resumeBehavior = behavior) }
     override fun setReaderControlsInitiallyVisible(visible: Boolean) = _settings.update { it.copy(readerControlsInitiallyVisible = visible) }
     override fun setLibraryListView(listView: Boolean) = _settings.update { it.copy(libraryListView = listView) }

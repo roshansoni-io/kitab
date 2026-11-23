@@ -2,6 +2,7 @@ package io.github.roshansoni_io.kitab.feature.settings
 
 import io.github.roshansoni_io.kitab.MainDispatcherRule
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
 import io.github.roshansoni_io.kitab.fakes.FakeSettingsRepository
 import org.junit.Assert.assertEquals
@@ -39,5 +40,14 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.SetDynamicColor(true))
 
         assertEquals(true, repository.settings.value.dynamicColor)
+    }
+
+    @Test
+    fun readerTextSizeEvent_updatesRepository() {
+        val viewModel = SettingsViewModel(repository)
+
+        viewModel.onEvent(SettingsEvent.SetReaderTextSize(ReaderTextSize.Large))
+
+        assertEquals(ReaderTextSize.Large, repository.settings.value.readerTextSize)
     }
 }

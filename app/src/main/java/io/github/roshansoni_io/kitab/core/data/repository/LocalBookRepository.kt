@@ -57,8 +57,9 @@ class LocalBookRepository(
             initialize()
             withBookLock {
                 val existing = findBook(uri)
-                val title = existing?.title ?: queryDisplayName(Uri.parse(uri)) ?: DEFAULT_BOOK_TITLE
-                val stored = resolveStoredFile(uri, existing, title) ?: return@withBookLock null
+                val displayName = resolveDisplayName(Uri.parse(uri))
+                val title = existing?.title ?: displayName?.let(::displayTitle) ?: DEFAULT_BOOK_TITLE
+                val stored = resolveStoredFile(uri, existing, displayName) ?: return@withBookLock null
 
                 val book =
                     updateBooks { currentBooks ->
@@ -81,8 +82,9 @@ class LocalBookRepository(
             initialize()
             withBookLock {
                 val existing = findBook(uri)
-                val title = existing?.title ?: queryDisplayName(Uri.parse(uri)) ?: DEFAULT_BOOK_TITLE
-                val stored = resolveStoredFile(uri, existing, title) ?: return@withBookLock null
+                val displayName = resolveDisplayName(Uri.parse(uri))
+                val title = existing?.title ?: displayName?.let(::displayTitle) ?: DEFAULT_BOOK_TITLE
+                val stored = resolveStoredFile(uri, existing, displayName) ?: return@withBookLock null
 
                 updateBooks { currentBooks ->
                     val current = currentBooks.firstOrNull { it.uri == uri } ?: existing
@@ -110,6 +112,30 @@ class LocalBookRepository(
                             book.copy(
                                 lastPage = lastPage.coerceAtLeast(0),
                                 pageCount = pageCount.coerceAtLeast(0),
+                                lastOpenedAt = System.currentTimeMillis(),
+                            )
+                        } else {
+                            book
+                        }
+                    }
+                }
+            }
+        }
+
+    override suspend fun updateEpubProgress(
+        uri: String,
+        locatorJson: String,
+        progression: Double,
+    ): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) {
+                            book.copy(
+                                epubLocator = locatorJson,
+                                epubProgress = progression.coerceIn(0.0, 1.0),
                                 lastOpenedAt = System.currentTimeMillis(),
                             )
                         } else {
@@ -159,7 +185,8 @@ class LocalBookRepository(
             initialize()
             withBookLock {
                 val current = findBook(book.uri) ?: book
-                val privateFile = resolveStoredFile(current.uri, current, current.title) ?: return@withBookLock null
+                val displayName = resolveDisplayName(Uri.parse(current.uri))
+                val privateFile = resolveStoredFile(current.uri, current, displayName) ?: return@withBookLock null
                 val updatedBook = current.copy(cachedPath = privateFile.path)
                 if (updatedBook.cachedPath != current.cachedPath) {
                     updateBooks { currentBooks ->
@@ -178,13 +205,44 @@ class LocalBookRepository(
     private fun resolveStoredFile(
         uri: String,
         existing: Book?,
-        title: String,
+        displayName: String?,
     ): File? {
         val cachedFile = existing?.cachedPath?.let(::File)
-        if (cachedFile?.isFile == true && isInside(cachedFile, booksDir)) return cachedFile
-        return cachedFile?.takeIf(File::isFile)?.let { copyFile(it, title) }
-            ?: copyUri(Uri.parse(uri), title)
+        val extension = extensionOf(displayName) ?: cachedFile?.takeIf(File::isFile)?.let(::detectExtension)
+        val cachedExtensionMatches =
+            extension == null || cachedFile?.extension.equals(extension, ignoreCase = true)
+        if (cachedFile?.isFile == true && isInside(cachedFile, booksDir) && cachedExtensionMatches) {
+            return cachedFile
+        }
+        val copyName =
+            displayName
+                ?: "${existing?.title ?: DEFAULT_BOOK_TITLE}.${extension ?: PDF_EXTENSION}"
+        val copied =
+            cachedFile?.takeIf(File::isFile)?.let { source ->
+                copyFile(source, copyName)?.also {
+                    if (isInside(source, booksDir)) source.delete()
+                }
+            }
+        return copied ?: copyUri(Uri.parse(uri), copyName)
     }
+
+    private fun detectExtension(file: File): String? =
+        try {
+            FileInputStream(file).use { input ->
+                val header = ByteArray(4)
+                if (input.read(header) < header.size) {
+                    null
+                } else {
+                    when {
+                        header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> EPUB_EXTENSION
+                        String(header, Charsets.US_ASCII) == "%PDF" -> PDF_EXTENSION
+                        else -> null
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
 
     private fun createThumbnail(book: Book): Boolean =
         coverRenderer.saveThumbnail(
@@ -208,7 +266,7 @@ class LocalBookRepository(
             appContext.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                 val nameColumn = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (nameColumn >= 0 && cursor.moveToFirst()) {
-                    cursor.getString(nameColumn)?.removeSuffix(".pdf")?.takeIf { it.isNotBlank() }
+                    cursor.getString(nameColumn)
                 } else {
                     null
                 }
@@ -216,6 +274,32 @@ class LocalBookRepository(
         } catch (_: Exception) {
             null
         }
+
+    private fun resolveDisplayName(uri: Uri): String? {
+        val displayName = queryDisplayName(uri)
+        if (extensionOf(displayName) != null) return displayName
+        val mimeType = runCatching { appContext.contentResolver.getType(uri) }.getOrNull()
+        val extension =
+            when (mimeType) {
+                EPUB_MIME_TYPE -> EPUB_EXTENSION
+                PDF_MIME_TYPE -> PDF_EXTENSION
+                else -> return displayName
+            }
+        val base =
+            displayName
+                ?.substringBeforeLast('.', displayName)
+                ?.takeIf(String::isNotBlank)
+                ?: DEFAULT_BOOK_TITLE
+        return "$base.$extension"
+    }
+
+    private fun displayTitle(displayName: String): String = displayName.substringBeforeLast('.', displayName).ifBlank { DEFAULT_BOOK_TITLE }
+
+    private fun extensionOf(displayName: String?): String? =
+        displayName
+            ?.substringAfterLast('.', "")
+            ?.lowercase()
+            ?.takeIf { it in SUPPORTED_BOOK_EXTENSIONS }
 
     private fun copyUri(
         uri: Uri,
@@ -227,7 +311,7 @@ class LocalBookRepository(
                     appContext.contentResolver.openInputStream(uri)
                 } catch (_: Exception) {
                     null
-                } ?: throw IOException("Could not read the selected PDF.")
+                } ?: throw IOException("Could not read the selected book.")
             input.use { stream -> destination.outputStream().use(stream::copyTo) }
         }
 
@@ -263,7 +347,9 @@ class LocalBookRepository(
                 .trim()
                 .take(MAX_FILE_NAME_LENGTH)
                 .ifBlank { DEFAULT_BOOK_TITLE }
-        return "$base-${UUID.randomUUID()}.$PDF_EXTENSION"
+        val extension = extensionOf(displayName) ?: PDF_EXTENSION
+        val nameWithoutExtension = base.substringBeforeLast('.', base)
+        return "$nameWithoutExtension-${UUID.randomUUID()}.$extension"
     }
 
     private fun isInside(
@@ -312,6 +398,7 @@ class LocalBookRepository(
                         title = book.title.takeIf(String::isNotBlank) ?: DEFAULT_BOOK_TITLE,
                         lastPage = book.lastPage.coerceAtLeast(0),
                         pageCount = book.pageCount.coerceAtLeast(0),
+                        epubProgress = book.epubProgress?.coerceIn(0.0, 1.0),
                         lastOpenedAt = book.lastOpenedAt.coerceAtLeast(0),
                     )
                 }
@@ -334,6 +421,10 @@ class LocalBookRepository(
         const val BOOKS_DIR = "books"
         const val THUMBNAILS_DIR = "thumbnails"
         const val PDF_EXTENSION = "pdf"
+        const val EPUB_EXTENSION = "epub"
+        const val PDF_MIME_TYPE = "application/pdf"
+        const val EPUB_MIME_TYPE = "application/epub+zip"
+        val SUPPORTED_BOOK_EXTENSIONS = setOf(PDF_EXTENSION, EPUB_EXTENSION)
         const val THUMBNAIL_EXTENSION = "png"
         const val THUMBNAIL_WIDTH_PX = 300
         const val DEFAULT_BOOK_TITLE = "Book"

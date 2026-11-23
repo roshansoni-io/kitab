@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.repository.BookRepository
 import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
 
@@ -21,6 +22,7 @@ internal fun ReaderRoute(
     bookRepository: BookRepository,
     settingsRepository: SettingsRepository,
     onProgressChanged: (String, Int, Int) -> Unit,
+    onEpubProgressChanged: (String, String, Double) -> Unit,
     onBack: () -> Unit,
     onOpenExternalLink: (String) -> Unit,
 ) {
@@ -49,18 +51,16 @@ internal fun ReaderRoute(
         return
     }
 
+    val resume = settings.resumeBehavior == ResumeBehavior.Resume
     ReaderScreen(
         book = book,
-        resumePage =
-            if (settings.resumeBehavior ==
-                io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior.Resume
-            ) {
-                book.lastPage
-            } else {
-                0
-            },
+        resumePage = if (resume) book.lastPage else 0,
+        resumeEpubLocatorJson = if (resume) book.epubLocator else null,
         settings = settings,
         onProgress = { page, pageCount -> onProgressChanged(book.uri, page, pageCount) },
+        onEpubProgress = { locatorJson, progression ->
+            onEpubProgressChanged(book.uri, locatorJson, progression)
+        },
         onBack = onBack,
         onOpenExternalLink = onOpenExternalLink,
     )

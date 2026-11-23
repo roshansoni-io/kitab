@@ -1,8 +1,13 @@
 package io.github.roshansoni_io.kitab.core.data.repository
 
 import android.app.Application
+import android.content.ContentProvider
+import android.content.ContentValues
+import android.database.Cursor
+import android.database.MatrixCursor
 import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.OpenableColumns
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -18,6 +23,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.ConscryptMode
+import org.robolectric.shadows.ShadowContentResolver
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -57,6 +63,29 @@ class LocalBookRepositoryTest {
         assertEquals(thumbnailsDirectory(), repository.thumbnailFile(book).parentFile)
         assertEquals(listOf(book.uri), repository.books.value.filter(Book::inLibrary).map(Book::uri))
         assertEquals(1, renderCount)
+    }
+
+    @Test
+    fun addBook_keepsEpubExtensionForReadium() = runBlocking {
+        registerEpub(EPUB_URI)
+
+        val book = checkNotNull(repository.addBook(EPUB_URI.toString()))
+
+        assertEquals("The Hobbit", book.title)
+        assertTrue(book.cachedPath.endsWith(".epub"))
+    }
+
+    @Test
+    fun openBook_repairsEpubStoredWithPdfExtension() = runBlocking {
+        val legacy = File(booksDirectory().apply { mkdirs() }, "hobbit.pdf")
+        legacy.writeBytes(FAKE_EPUB_BYTES)
+        storeBookRecord(EPUB_URI.toString(), legacy.path)
+        repository = createRepository()
+
+        val book = checkNotNull(repository.openBook(EPUB_URI.toString()))
+
+        assertEquals("epub", File(book.cachedPath).extension)
+        assertFalse(legacy.exists())
     }
 
     @Test
@@ -128,9 +157,28 @@ class LocalBookRepositoryTest {
         assertTrue(recent.lastOpenedAt > 0)
 
         repository = createRepository()
+        repository.initialize()
         val restored = repository.books.value.first { it.uri == book.uri }
         assertEquals(12, restored.lastPage)
         assertEquals(320, restored.pageCount)
+    }
+
+    @Test
+    fun updateEpubProgress_persistsLocatorAndProgression() = runBlocking {
+        val book = addFakeBook()
+        val locator = """{"href":"chapter1.xhtml","locations":{"totalProgression":0.42}}"""
+
+        repository.updateEpubProgress(book.uri, locator, progression = 1.4)
+
+        val recent = repository.books.value.first { it.uri == book.uri }
+        assertEquals(locator, recent.epubLocator)
+        assertEquals(1.0, recent.epubProgress)
+
+        repository = createRepository()
+        repository.initialize()
+        val restored = repository.books.value.first { it.uri == book.uri }
+        assertEquals(locator, restored.epubLocator)
+        assertEquals(1.0, restored.epubProgress)
     }
 
     @Test
@@ -193,6 +241,47 @@ class LocalBookRepositoryTest {
         Shadows.shadowOf(application.contentResolver).registerInputStream(uri, ByteArrayInputStream(FAKE_PDF_BYTES))
     }
 
+    private fun registerEpub(uri: Uri) {
+        Shadows.shadowOf(application.contentResolver).registerInputStream(uri, ByteArrayInputStream(FAKE_EPUB_BYTES))
+        ShadowContentResolver.registerProviderInternal(
+            "kitab.test",
+            object : ContentProvider() {
+                override fun onCreate(): Boolean = true
+
+                override fun getType(uri: Uri): String = "application/epub+zip"
+
+                override fun query(
+                    uri: Uri,
+                    projection: Array<out String>?,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                    sortOrder: String?,
+                ): Cursor =
+                    MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME), 1).apply {
+                        addRow(arrayOf("The Hobbit.epub"))
+                    }
+
+                override fun insert(
+                    uri: Uri,
+                    values: ContentValues?,
+                ): Uri? = null
+
+                override fun delete(
+                    uri: Uri,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                ): Int = 0
+
+                override fun update(
+                    uri: Uri,
+                    values: ContentValues?,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                ): Int = 0
+            },
+        )
+    }
+
     private fun storeBookRecord(
         uri: String,
         cachedPath: String,
@@ -218,6 +307,8 @@ class LocalBookRepositoryTest {
     private companion object {
         val FAKE_URI: Uri = Uri.parse("content://kitab.test/sample.pdf")
         val EXTERNAL_URI: Uri = Uri.parse("content://kitab.test/external.pdf")
+        val EPUB_URI: Uri = Uri.parse("content://kitab.test/hobbit.epub")
         val FAKE_PDF_BYTES = byteArrayOf(1, 2, 3)
+        val FAKE_EPUB_BYTES = byteArrayOf(0x50, 0x4B, 3, 4)
     }
 }

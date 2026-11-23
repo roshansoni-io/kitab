@@ -45,6 +45,12 @@ internal sealed interface KitabEvent {
         val page: Int,
         val pageCount: Int,
     ) : KitabEvent
+
+    data class EpubProgressChanged(
+        val bookUri: String,
+        val locatorJson: String,
+        val progression: Double,
+    ) : KitabEvent
 }
 
 internal sealed interface KitabEffect {
@@ -73,6 +79,7 @@ internal class KitabViewModel(
             is KitabEvent.OpenBookRequested -> openBook(event.uri)
             KitabEvent.DismissDialog -> _uiState.update { it.copy(dialog = null) }
             is KitabEvent.ProgressChanged -> updateProgress(event.bookUri, event.page, event.pageCount)
+            is KitabEvent.EpubProgressChanged -> updateEpubProgress(event.bookUri, event.locatorJson, event.progression)
         }
     }
 
@@ -106,6 +113,16 @@ internal class KitabViewModel(
     ) {
         viewModelScope.launch {
             bookRepository.updateProgress(bookUri, page, pageCount)
+        }
+    }
+
+    private fun updateEpubProgress(
+        bookUri: String,
+        locatorJson: String,
+        progression: Double,
+    ) {
+        viewModelScope.launch {
+            bookRepository.updateEpubProgress(bookUri, locatorJson, progression)
         }
     }
 

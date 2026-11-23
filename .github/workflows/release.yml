@@ -86,7 +86,7 @@ jobs:
           PY
 
       - name: Build signed release APKs
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon -Pandroid.settings.executionProfile=ci assembleRelease
 
       - name: Attach APKs to GitHub Release
         env:

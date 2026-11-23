@@ -183,7 +183,9 @@ class MuPdfDocument internal constructor(
                 targetWidthPx.toFloat() / pageWidth,
                 MAX_RENDERED_HEIGHT_PX.toFloat() / pageHeight,
             )
-        val ctm = Matrix(zoom, zoom)
+        // MuPDF pages can have non-zero origins. Move the rendered page bounds to
+        // the bitmap origin so the bitmap contains the complete page rectangle.
+        val ctm = Matrix(zoom, zoom).translate(-pageBounds.x0, -pageBounds.y0)
         val deviceBounds = RectI(pageBounds.transform(ctm))
         val bitmapWidth = (deviceBounds.x1 - deviceBounds.x0).coerceAtLeast(1)
         val bitmapHeight = (deviceBounds.y1 - deviceBounds.y0).coerceAtLeast(1)
@@ -237,8 +239,13 @@ class MuPdfDocument internal constructor(
 
         fun open(file: File): MuPdfDocument =
             try {
-                Document.openDocument(file.path)?.let(::MuPdfDocument)
-                    ?: throw DocumentOpenException.NotReadable(file.path)
+                val document = Document.openDocument(file.path) ?: throw DocumentOpenException.NotReadable(file.path)
+                try {
+                    MuPdfDocument(document)
+                } catch (failure: Exception) {
+                    document.destroy()
+                    throw failure
+                }
             } catch (notFound: DocumentOpenException) {
                 throw notFound
             } catch (cause: Exception) {

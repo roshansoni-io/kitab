@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
+import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
@@ -36,6 +37,8 @@ class SharedPreferencesSettingsRepository(
 
     override fun setReaderPaging(paging: ReaderPaging) = update { it.copy(readerPaging = paging) }
 
+    override fun setReaderTextSize(size: ReaderTextSize) = update { it.copy(readerTextSize = size) }
+
     override fun setResumeBehavior(behavior: ResumeBehavior) = update { it.copy(resumeBehavior = behavior) }
 
     override fun setReaderControlsInitiallyVisible(visible: Boolean) = update { it.copy(readerControlsInitiallyVisible = visible) }
@@ -53,6 +56,7 @@ class SharedPreferencesSettingsRepository(
             .putString(KEY_SELECTION_COLOR, updated.selectionColor.name)
             .putString(KEY_PAGE_TONE, updated.readerPageTone.name)
             .putString(KEY_PAGING, updated.readerPaging.name)
+            .putString(KEY_TEXT_SIZE, updated.readerTextSize.name)
             .putString(KEY_RESUME, updated.resumeBehavior.name)
             .putBoolean(KEY_CONTROLS_VISIBLE, updated.readerControlsInitiallyVisible)
             .putBoolean(KEY_LIBRARY_LIST, updated.libraryListView)
@@ -69,6 +73,7 @@ class SharedPreferencesSettingsRepository(
             selectionColor = enumPreference(KEY_SELECTION_COLOR, SelectionColor.Blue),
             readerPageTone = enumPreference(KEY_PAGE_TONE, ReaderPageTone.Theme),
             readerPaging = enumPreference(KEY_PAGING, ReaderPaging.Horizontal),
+            readerTextSize = enumPreference(KEY_TEXT_SIZE, ReaderTextSize.Medium),
             resumeBehavior = enumPreference(KEY_RESUME, ResumeBehavior.Resume),
             readerControlsInitiallyVisible = prefs.getBoolean(KEY_CONTROLS_VISIBLE, true),
             libraryListView = prefs.getBoolean(KEY_LIBRARY_LIST, false),
@@ -115,6 +120,7 @@ class SharedPreferencesSettingsRepository(
         const val KEY_SELECTION_COLOR = "selection_color"
         const val KEY_PAGE_TONE = "reader_page_tone"
         const val KEY_PAGING = "reader_paging"
+        const val KEY_TEXT_SIZE = "reader_text_size"
         const val KEY_RESUME = "resume_behavior"
         const val KEY_CONTROLS_VISIBLE = "reader_controls_visible"
         const val KEY_LIBRARY_LIST = "library_list_view"

@@ -87,7 +87,7 @@ internal fun ZoomedPageImage(
         ) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = "PDF page",
+                contentDescription = "Book page",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )

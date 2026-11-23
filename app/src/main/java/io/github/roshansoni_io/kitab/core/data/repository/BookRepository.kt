@@ -19,6 +19,12 @@ interface BookRepository {
         pageCount: Int,
     )
 
+    suspend fun updateEpubProgress(
+        uri: String,
+        locatorJson: String,
+        progression: Double,
+    )
+
     suspend fun setStarred(
         uri: String,
         starred: Boolean,

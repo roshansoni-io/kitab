@@ -40,7 +40,7 @@ internal fun RemoveBookDialog(
             Text(
                 text =
                     "\"${book.title}\" will be removed from your library " +
-                        "and its stored PDF will be deleted.",
+                        "and its stored file will be deleted.",
             )
         },
     )

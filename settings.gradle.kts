@@ -1,4 +1,7 @@
 pluginManagement {
+    plugins {
+        id("com.android.settings") version "9.1.1" apply false
+    }
     repositories {
         google {
             content {
@@ -11,6 +14,37 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+plugins {
+    id("com.android.settings")
+}
+
+android {
+    execution {
+        profiles {
+            create("local") {
+                r8 {
+                    runInSeparateProcess = true
+                    jvmOptions += listOf("-Xmx2g", "-XX:+UseParallelGC")
+                }
+            }
+            create("ci") {
+                r8 {
+                    runInSeparateProcess = true
+                    jvmOptions +=
+                        listOf(
+                            "-Xms1g",
+                            "-Xmx4g",
+                            "-XX:+UseParallelGC",
+                            "-XX:+HeapDumpOnOutOfMemoryError",
+                        )
+                }
+            }
+            defaultProfile = "local"
+        }
+    }
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {

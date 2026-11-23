@@ -14,6 +14,16 @@ enum class ReaderPaging { Horizontal, Vertical }
 
 enum class ResumeBehavior { Resume, Beginning }
 
+/** Text scaling applied to EPUB text by the Readium navigator. */
+enum class ReaderTextSize(
+    val scale: Float,
+) {
+    Small(0.85f),
+    Medium(1f),
+    Large(1.2f),
+    ExtraLarge(1.45f),
+}
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = true,
@@ -22,6 +32,7 @@ data class AppSettings(
     val selectionColor: SelectionColor = SelectionColor.Blue,
     val readerPageTone: ReaderPageTone = ReaderPageTone.Theme,
     val readerPaging: ReaderPaging = ReaderPaging.Horizontal,
+    val readerTextSize: ReaderTextSize = ReaderTextSize.Medium,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,
     val readerControlsInitiallyVisible: Boolean = true,
     val libraryListView: Boolean = false,

@@ -3,12 +3,14 @@ package io.github.roshansoni_io.kitab.core.platform
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.pdf.PdfRenderer
-import android.os.ParcelFileDescriptor
+import com.artifex.mupdf.fitz.Cookie
+import com.artifex.mupdf.fitz.Document
+import com.artifex.mupdf.fitz.Matrix
+import com.artifex.mupdf.fitz.RectI
+import com.artifex.mupdf.fitz.android.AndroidDrawDevice
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
-import kotlin.math.roundToInt
 
 fun interface BookCoverRenderer {
     fun renderFirstPage(
@@ -57,40 +59,62 @@ fun interface BookCoverRenderer {
     }
 
     companion object {
-        fun android(): BookCoverRenderer = BookCoverRenderer(::renderAndroidPdfPage)
+        fun android(): BookCoverRenderer = BookCoverRenderer(::renderDocumentPage)
     }
 }
 
-private fun renderAndroidPdfPage(
-    pdfFile: File,
+private fun renderDocumentPage(
+    documentFile: File,
     targetWidthPx: Int,
-): Bitmap? =
-    ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
-        PdfRenderer(descriptor).use rendererUse@{ renderer ->
-            if (renderer.pageCount == 0) return@rendererUse null
-            val page = renderer.openPage(0)
+): Bitmap? {
+    val document = Document.openDocument(documentFile.path) ?: return null
+    try {
+        if (document.isReflowable()) document.layout(COVER_PAGE_WIDTH, COVER_PAGE_HEIGHT, COVER_FONT_SIZE)
+        if (document.countPages() == 0) return null
+        val page = document.loadPage(0)
+        try {
+            val bounds = page.getBounds()
+            val pageWidth = bounds.x1 - bounds.x0
+            val pageHeight = bounds.y1 - bounds.y0
+            if (pageWidth <= 0f || pageHeight <= 0f) return null
+            val scale =
+                minOf(
+                    targetWidthPx.coerceAtLeast(1) / pageWidth,
+                    MAX_HEIGHT_PX / pageHeight,
+                )
+            val matrix = Matrix(scale, scale).translate(-bounds.x0, -bounds.y0)
+            val deviceBounds = RectI(bounds.transform(matrix))
+            val width = (deviceBounds.x1 - deviceBounds.x0).coerceAtLeast(1)
+            val height = (deviceBounds.y1 - deviceBounds.y0).coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(Color.WHITE)
+            val displayList = page.toDisplayList()
             try {
-                if (page.width <= 0 || page.height <= 0) return@rendererUse null
-                val scale =
-                    minOf(
-                        targetWidthPx.coerceAtLeast(1).toFloat() / page.width,
-                        MAX_HEIGHT_PX.toFloat() / page.height,
-                    )
-                val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
-                    try {
-                        bitmap.eraseColor(Color.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    } catch (failure: Exception) {
-                        bitmap.recycle()
-                        throw failure
-                    }
+                val device = AndroidDrawDevice(bitmap, 0, 0)
+                val cookie = Cookie()
+                try {
+                    displayList.run(device, matrix, cookie)
+                    device.close()
+                } catch (failure: Exception) {
+                    bitmap.recycle()
+                    throw failure
+                } finally {
+                    cookie.destroy()
+                    device.destroy()
                 }
             } finally {
-                page.close()
+                displayList.destroy()
             }
+            return bitmap
+        } finally {
+            page.destroy()
         }
+    } finally {
+        document.destroy()
     }
+}
 
 private const val MAX_HEIGHT_PX = 600
+private const val COVER_PAGE_WIDTH = 420f
+private const val COVER_PAGE_HEIGHT = 680f
+private const val COVER_FONT_SIZE = 18f
