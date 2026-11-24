@@ -1,22 +1,24 @@
 package io.github.roshansoni_io.kitab.navigation
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.painterResource
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun AppNavigationBar(
     selectedTab: KitabTab,
     onSelectTab: (KitabTab) -> Unit,
 ) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+    ShortNavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         KitabTab.entries.forEach { tab ->
-            NavigationBarItem(
+            ShortNavigationBarItem(
                 selected = selectedTab == tab,
                 onClick = { onSelectTab(tab) },
                 icon = {
@@ -26,12 +28,11 @@ internal fun AppNavigationBar(
                     )
                 },
                 label = { Text(tab.label) },
-                alwaysShowLabel = true,
                 colors =
-                    NavigationBarItemDefaults.colors(
+                    ShortNavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onSurface,
-                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                        indicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        selectedTextColorTopIconPosition = MaterialTheme.colorScheme.onSurface,
+                        selectedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),

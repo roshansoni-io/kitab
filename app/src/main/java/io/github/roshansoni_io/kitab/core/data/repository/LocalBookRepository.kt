@@ -175,6 +175,87 @@ class LocalBookRepository(
             }
         }
 
+    override suspend fun removeFromLibrary(uri: String): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) book.copy(inLibrary = false) else book
+                    }
+                }
+            }
+        }
+
+    override suspend fun renameBook(
+        uri: String,
+        newTitle: String,
+    ): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                val cleanTitle = newTitle.trim().ifEmpty { return@withBookLock }
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) book.copy(title = cleanTitle) else book
+                    }
+                }
+            }
+        }
+
+    override suspend fun resetProgress(uri: String): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) {
+                            book.copy(
+                                lastPage = 0,
+                                epubLocator = null,
+                                epubProgress = 0.0,
+                            )
+                        } else {
+                            book
+                        }
+                    }
+                }
+            }
+        }
+
+    override suspend fun markCompleted(uri: String): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks.map { book ->
+                        if (book.uri == uri) {
+                            book.copy(
+                                lastPage = book.pageCount,
+                                epubProgress = 1.0,
+                            )
+                        } else {
+                            book
+                        }
+                    }
+                }
+            }
+        }
+
+    override suspend fun clearRecentHistory(): Unit =
+        withContext(Dispatchers.IO) {
+            initialize()
+            withBookLock {
+                updateBooks { currentBooks ->
+                    currentBooks
+                        .filter { it.inLibrary }
+                        .map { it.copy(lastOpenedAt = 0) }
+                }
+            }
+        }
+
+    override suspend fun deleteBookFile(uri: String): Unit = removeBook(uri)
+
     fun thumbnailFile(book: Book): File {
         thumbnailsDir.mkdirs()
         return File(thumbnailsDir, "${stableId(book.uri)}.$THUMBNAIL_EXTENSION")

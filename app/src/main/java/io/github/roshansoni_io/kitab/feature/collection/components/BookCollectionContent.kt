@@ -44,6 +44,11 @@ internal fun BookCollectionContent(
     onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
+    onShowDetails: ((Book) -> Unit)? = null,
+    onRequestRename: ((Book) -> Unit)? = null,
+    onResetProgress: ((Book) -> Unit)? = null,
+    onMarkCompleted: ((Book) -> Unit)? = null,
+    onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     when {
         uiState.isLoading -> {
@@ -65,7 +70,7 @@ internal fun BookCollectionContent(
             EmptyFilterState(uiState.filter, contentPadding)
         }
 
-        source == BookCollectionSource.Recent -> {
+        source == BookCollectionSource.Recent && !uiState.isListView -> {
             BookCarousel(
                 uiState = uiState,
                 contentPadding = contentPadding,
@@ -75,6 +80,11 @@ internal fun BookCollectionContent(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
             )
         }
 
@@ -88,6 +98,11 @@ internal fun BookCollectionContent(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
             )
         }
 
@@ -101,6 +116,11 @@ internal fun BookCollectionContent(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
             )
         }
     }
@@ -117,6 +137,11 @@ private fun BookCarousel(
     onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
+    onShowDetails: ((Book) -> Unit)? = null,
+    onRequestRename: ((Book) -> Unit)? = null,
+    onResetProgress: ((Book) -> Unit)? = null,
+    onMarkCompleted: ((Book) -> Unit)? = null,
+    onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     Column(
         modifier =
@@ -151,6 +176,11 @@ private fun BookCarousel(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -167,6 +197,11 @@ private fun BookGrid(
     onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
+    onShowDetails: ((Book) -> Unit)? = null,
+    onRequestRename: ((Book) -> Unit)? = null,
+    onResetProgress: ((Book) -> Unit)? = null,
+    onMarkCompleted: ((Book) -> Unit)? = null,
+    onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     LazyVerticalGrid(
@@ -197,6 +232,11 @@ private fun BookGrid(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -216,6 +256,11 @@ private fun BookList(
     onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
+    onShowDetails: ((Book) -> Unit)? = null,
+    onRequestRename: ((Book) -> Unit)? = null,
+    onResetProgress: ((Book) -> Unit)? = null,
+    onMarkCompleted: ((Book) -> Unit)? = null,
+    onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
@@ -244,6 +289,11 @@ private fun BookList(
                 onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
+                onShowDetails = onShowDetails,
+                onRequestRename = onRequestRename,
+                onResetProgress = onResetProgress,
+                onMarkCompleted = onMarkCompleted,
+                onRequestDeleteFile = onRequestDeleteFile,
             )
         }
     }

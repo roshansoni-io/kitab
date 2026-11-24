@@ -32,5 +32,20 @@ interface BookRepository {
 
     suspend fun removeBook(uri: String)
 
+    suspend fun removeFromLibrary(uri: String)
+
+    suspend fun renameBook(
+        uri: String,
+        newTitle: String,
+    )
+
+    suspend fun resetProgress(uri: String)
+
+    suspend fun markCompleted(uri: String)
+
+    suspend fun clearRecentHistory()
+
+    suspend fun deleteBookFile(uri: String)
+
     suspend fun loadCover(book: Book): Bitmap?
 }

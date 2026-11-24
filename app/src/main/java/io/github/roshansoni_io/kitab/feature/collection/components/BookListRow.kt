@@ -13,7 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -51,6 +53,11 @@ internal fun BookListRow(
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
+    onShowDetails: ((Book) -> Unit)? = null,
+    onRequestRename: ((Book) -> Unit)? = null,
+    onResetProgress: ((Book) -> Unit)? = null,
+    onMarkCompleted: ((Book) -> Unit)? = null,
+    onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(book.uri, cover) {
@@ -104,6 +111,11 @@ internal fun BookListRow(
                         onToggleStar = onToggleStar,
                         onAddToLibrary = onAddToLibrary,
                         onRequestRemove = onRequestRemove,
+                        onShowDetails = onShowDetails,
+                        onRequestRename = onRequestRename,
+                        onResetProgress = onResetProgress,
+                        onMarkCompleted = onMarkCompleted,
+                        onRequestDeleteFile = onRequestDeleteFile,
                     )
                     StarButton(book = book, onToggleStar = onToggleStar)
                 }
@@ -122,6 +134,7 @@ internal fun BookListRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StarButton(
     book: Book,
@@ -131,17 +144,17 @@ private fun StarButton(
     IconToggleButton(
         checked = book.starred,
         onCheckedChange = { onToggleStar(book) },
+        shapes = IconButtonDefaults.toggleableShapes(),
+        colors =
+            IconButtonDefaults.iconToggleButtonColors(
+                checkedContentColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
         modifier = modifier,
     ) {
         Icon(
             imageVector = Icons.Filled.Star,
             contentDescription = if (book.starred) "Remove star" else "Star book",
-            tint =
-                if (book.starred) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
             modifier = Modifier.size(22.dp),
         )
     }

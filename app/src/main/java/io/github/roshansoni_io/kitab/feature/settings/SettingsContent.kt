@@ -1,5 +1,6 @@
 package io.github.roshansoni_io.kitab.feature.settings
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,15 +19,14 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -61,6 +63,7 @@ import io.github.roshansoni_io.kitab.core.data.model.SelectionColor
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
 import io.github.roshansoni_io.kitab.core.platform.openExternalLink
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SettingsContent(
     uiState: SettingsUiState,
@@ -77,6 +80,22 @@ internal fun SettingsContent(
     val layoutDirection = LocalLayoutDirection.current
     val context = LocalContext.current
     var isColorPickerVisible by remember { mutableStateOf(false) }
+
+    val appearanceBadgeShape = MaterialShapes.Cookie4Sided.toShape()
+    val appearanceContainer = MaterialTheme.colorScheme.primaryContainer
+    val appearanceContent = MaterialTheme.colorScheme.onPrimaryContainer
+
+    val readingBadgeShape = MaterialShapes.Cookie6Sided.toShape()
+    val readingContainer = MaterialTheme.colorScheme.secondaryContainer
+    val readingContent = MaterialTheme.colorScheme.onSecondaryContainer
+
+    val supportBadgeShape = MaterialShapes.Sunny.toShape()
+    val supportContainer = MaterialTheme.colorScheme.tertiaryContainer
+    val supportContent = MaterialTheme.colorScheme.onTertiaryContainer
+
+    val aboutBadgeShape = MaterialShapes.Cookie12Sided.toShape()
+    val aboutContainer = MaterialTheme.colorScheme.surfaceContainerHighest
+    val aboutContent = MaterialTheme.colorScheme.onSurface
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -97,7 +116,10 @@ internal fun SettingsContent(
             SettingsSection(title = "Appearance") {
                 SettingsItem(
                     title = "Theme",
-                    icon = Icons.Filled.Settings,
+                    iconRes = R.drawable.ic_palette,
+                    badgeShape = appearanceBadgeShape,
+                    badgeContainerColor = appearanceContainer,
+                    badgeContentColor = appearanceContent,
                     supporting = "Choose light, dark, or follow the system",
                 )
                 ThemeSelector(
@@ -113,7 +135,10 @@ internal fun SettingsContent(
                         } else {
                             "Requires Android 12 or later"
                         },
-                    icon = Icons.Filled.Star,
+                    iconRes = R.drawable.ic_auto_awesome,
+                    badgeShape = appearanceBadgeShape,
+                    badgeContainerColor = appearanceContainer,
+                    badgeContentColor = appearanceContent,
                     checked = uiState.dynamicColor && supportsDynamicColor,
                     enabled = supportsDynamicColor,
                     onCheckedChange = { onEvent(SettingsEvent.SetDynamicColor(it)) },
@@ -128,7 +153,10 @@ internal fun SettingsContent(
                         } else {
                             "Choose a seed color for the Material 3 palette"
                         },
-                    icon = Icons.Filled.Star,
+                    iconRes = R.drawable.ic_color_lens,
+                    badgeShape = appearanceBadgeShape,
+                    badgeContainerColor = appearanceContainer,
+                    badgeContentColor = appearanceContent,
                     interactionModifier = Modifier.clickable(role = Role.Button) { isColorPickerVisible = true },
                     trailing = {
                         Surface(
@@ -146,7 +174,10 @@ internal fun SettingsContent(
                 SettingsSwitchItem(
                     title = "Keep screen awake",
                     supporting = "Prevent the screen from turning off while reading",
-                    icon = Icons.Filled.Lock,
+                    iconRes = R.drawable.ic_visibility,
+                    badgeShape = readingBadgeShape,
+                    badgeContainerColor = readingContainer,
+                    badgeContentColor = readingContent,
                     checked = uiState.keepScreenAwake,
                     onCheckedChange = { onEvent(SettingsEvent.SetKeepAwake(it)) },
                 )
@@ -162,7 +193,10 @@ internal fun SettingsContent(
                 SettingsSwitchItem(
                     title = "Show reader controls",
                     supporting = "Show the page controls when opening a book",
-                    icon = Icons.Filled.Settings,
+                    iconRes = R.drawable.ic_tune,
+                    badgeShape = readingBadgeShape,
+                    badgeContainerColor = readingContainer,
+                    badgeContentColor = readingContent,
                     checked = uiState.readerControlsInitiallyVisible,
                     onCheckedChange = { onEvent(SettingsEvent.SetControlsInitiallyVisible(it)) },
                 )
@@ -180,7 +214,10 @@ internal fun SettingsContent(
                 SettingsItem(
                     title = "Report a bug or request a feature",
                     supporting = "Share feedback or tell us what could be better",
-                    icon = Icons.Filled.Info,
+                    imageVector = Icons.Filled.Info,
+                    badgeShape = supportBadgeShape,
+                    badgeContainerColor = supportContainer,
+                    badgeContentColor = supportContent,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
                             openExternalLink(context, REPOSITORY_ISSUES_URL)
@@ -189,7 +226,10 @@ internal fun SettingsContent(
                 SettingsItem(
                     title = "Star Kitab on GitHub",
                     supporting = "Support the project by starring the repository",
-                    icon = Icons.Filled.Star,
+                    iconRes = R.drawable.ic_star,
+                    badgeShape = supportBadgeShape,
+                    badgeContainerColor = supportContainer,
+                    badgeContentColor = supportContent,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
                             openExternalLink(context, REPOSITORY_URL)
@@ -203,7 +243,10 @@ internal fun SettingsContent(
                 SettingsItem(
                     title = "About Kitab",
                     supporting = "PDF and EPUB reader · Version ${BuildConfig.VERSION_NAME}",
-                    icon = Icons.Filled.Info,
+                    iconRes = R.drawable.ic_kitab_logo,
+                    badgeShape = aboutBadgeShape,
+                    badgeContainerColor = aboutContainer,
+                    badgeContentColor = aboutContent,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
                             onAboutClick()
@@ -212,7 +255,10 @@ internal fun SettingsContent(
                 SettingsItem(
                     title = "Open-source licenses",
                     supporting = "MuPDF, Readium",
-                    icon = Icons.Filled.Lock,
+                    iconRes = R.drawable.ic_description,
+                    badgeShape = aboutBadgeShape,
+                    badgeContainerColor = aboutContainer,
+                    badgeContentColor = aboutContent,
                     interactionModifier =
                         Modifier.clickable(role = Role.Button) {
                             onLicensesClick()
@@ -312,6 +358,7 @@ private fun <T> EnumSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AppHeader() {
     Row(
@@ -322,7 +369,7 @@ private fun AppHeader() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            shape = CircleShape,
+            shape = MaterialShapes.Cookie12Sided.toShape(),
             color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.size(56.dp),
         ) {
@@ -371,10 +418,15 @@ private fun SettingsSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SettingsItem(
     title: String,
-    icon: ImageVector? = null,
+    imageVector: ImageVector? = null,
+    @DrawableRes iconRes: Int? = null,
+    badgeShape: Shape = MaterialShapes.Cookie4Sided.toShape(),
+    badgeContainerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    badgeContentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     supporting: String? = null,
     enabled: Boolean = true,
     interactionModifier: Modifier = Modifier,
@@ -401,13 +453,33 @@ private fun SettingsItem(
                 null
             },
         leadingContent =
-            if (icon != null) {
+            if (imageVector != null || iconRes != null) {
                 {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = supportingColor,
-                    )
+                    val container = if (enabled) badgeContainerColor else badgeContainerColor.copy(alpha = disabledAlpha)
+                    val content = if (enabled) badgeContentColor else badgeContentColor.copy(alpha = disabledAlpha)
+                    Surface(
+                        shape = badgeShape,
+                        color = container,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (imageVector != null) {
+                                Icon(
+                                    imageVector = imageVector,
+                                    contentDescription = null,
+                                    tint = content,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            } else if (iconRes != null) {
+                                Icon(
+                                    painter = painterResource(iconRes),
+                                    contentDescription = null,
+                                    tint = content,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 null
@@ -424,7 +496,11 @@ private fun SettingsItem(
 private fun SettingsSwitchItem(
     title: String,
     supporting: String,
-    icon: ImageVector,
+    imageVector: ImageVector? = null,
+    @DrawableRes iconRes: Int? = null,
+    badgeShape: Shape,
+    badgeContainerColor: Color,
+    badgeContentColor: Color,
     checked: Boolean,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
@@ -432,7 +508,11 @@ private fun SettingsSwitchItem(
     SettingsItem(
         title = title,
         supporting = supporting,
-        icon = icon,
+        imageVector = imageVector,
+        iconRes = iconRes,
+        badgeShape = badgeShape,
+        badgeContainerColor = badgeContainerColor,
+        badgeContentColor = badgeContentColor,
         enabled = enabled,
         interactionModifier =
             Modifier.toggleable(

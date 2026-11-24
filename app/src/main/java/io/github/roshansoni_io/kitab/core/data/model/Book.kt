@@ -21,3 +21,10 @@ enum class BookFilter {
     Recent,
     Starred,
 }
+
+enum class BookSortOrder {
+    LastOpened,
+    TitleAsc,
+    TitleDesc,
+    Progress,
+}

@@ -11,8 +11,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.data.model.BookFilter
+import io.github.roshansoni_io.kitab.core.data.model.BookSortOrder
+import io.github.roshansoni_io.kitab.core.ui.components.BookDetailsDialog
 import io.github.roshansoni_io.kitab.core.ui.components.BookHeader
+import io.github.roshansoni_io.kitab.core.ui.components.ClearRecentHistoryDialog
+import io.github.roshansoni_io.kitab.core.ui.components.DeleteBookFileDialog
 import io.github.roshansoni_io.kitab.core.ui.components.RemoveBookDialog
+import io.github.roshansoni_io.kitab.core.ui.components.RenameBookDialog
 import io.github.roshansoni_io.kitab.feature.collection.components.BookCollectionContent
 import io.github.roshansoni_io.kitab.feature.collection.components.CollectionViewMenuItems
 
@@ -22,6 +27,7 @@ internal fun BookCollectionScreen(
     source: BookCollectionSource,
     onFilterChanged: (BookFilter) -> Unit,
     onListViewChanged: (Boolean) -> Unit,
+    onSortOrderChanged: (BookSortOrder) -> Unit,
     onSearchVisibilityChanged: (Boolean) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onOpenBook: (Book) -> Unit,
@@ -32,6 +38,19 @@ internal fun BookCollectionScreen(
     onRemoveRequested: (Book) -> Unit,
     onRemovalConfirmed: () -> Unit,
     onRemovalDismissed: () -> Unit,
+    onShowDetails: (Book) -> Unit,
+    onDetailsDismissed: () -> Unit,
+    onRequestRename: (Book) -> Unit,
+    onRenameConfirmed: (String) -> Unit,
+    onRenameDismissed: () -> Unit,
+    onResetProgress: (Book) -> Unit,
+    onMarkCompleted: (Book) -> Unit,
+    onClearHistoryRequested: () -> Unit,
+    onClearHistoryConfirmed: () -> Unit,
+    onClearHistoryDismissed: () -> Unit,
+    onRequestDeleteFile: (Book) -> Unit,
+    onDeleteFileConfirmed: () -> Unit,
+    onDeleteFileDismissed: () -> Unit,
 ) {
     val overflowMenuContent: (@Composable ColumnScope.(onDismissRequest: () -> Unit) -> Unit)? =
         if (source.supportsListView) {
@@ -39,7 +58,10 @@ internal fun BookCollectionScreen(
                 CollectionViewMenuItems(
                     isListView = uiState.isListView,
                     onViewSelected = onListViewChanged,
+                    sortOrder = uiState.sortOrder,
+                    onSortSelected = onSortOrderChanged,
                     onDismissRequest = onDismissRequest,
+                    onClearHistoryRequested = if (source == BookCollectionSource.Recent) onClearHistoryRequested else null,
                 )
             }
         } else {
@@ -69,6 +91,11 @@ internal fun BookCollectionScreen(
             onToggleStar = onStarRequested,
             onAddToLibrary = onAddToLibrary,
             onRequestRemove = onRemoveRequested,
+            onShowDetails = onShowDetails,
+            onRequestRename = onRequestRename,
+            onResetProgress = onResetProgress,
+            onMarkCompleted = onMarkCompleted,
+            onRequestDeleteFile = onRequestDeleteFile,
         )
     }
 
@@ -77,6 +104,36 @@ internal fun BookCollectionScreen(
             book = book,
             onConfirm = onRemovalConfirmed,
             onDismiss = onRemovalDismissed,
+        )
+    }
+
+    uiState.pendingRename?.let { book ->
+        RenameBookDialog(
+            book = book,
+            onConfirm = onRenameConfirmed,
+            onDismiss = onRenameDismissed,
+        )
+    }
+
+    uiState.pendingDetails?.let { book ->
+        BookDetailsDialog(
+            book = book,
+            onDismiss = onDetailsDismissed,
+        )
+    }
+
+    if (uiState.pendingClearHistory) {
+        ClearRecentHistoryDialog(
+            onConfirm = onClearHistoryConfirmed,
+            onDismiss = onClearHistoryDismissed,
+        )
+    }
+
+    uiState.pendingFileDeletion?.let { book ->
+        DeleteBookFileDialog(
+            book = book,
+            onConfirm = onDeleteFileConfirmed,
+            onDismiss = onDeleteFileDismissed,
         )
     }
 }

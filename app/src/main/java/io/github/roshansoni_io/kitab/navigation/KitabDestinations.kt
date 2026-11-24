@@ -10,7 +10,7 @@ internal enum class KitabTab(
     @param:DrawableRes val iconResource: Int,
 ) {
     Recent("recent", "Recent", R.drawable.ic_clock),
-    Library("library", "Library", R.drawable.ic_home),
+    Library("library", "Library", R.drawable.ic_library_books),
     Settings("settings", "Settings", R.drawable.ic_settings),
 }
 

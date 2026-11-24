@@ -1,17 +1,19 @@
 package io.github.roshansoni_io.kitab.core.ui.components
 
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import io.github.roshansoni_io.kitab.core.data.model.Book
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
 ) {
-    LinearProgressIndicator(
+    LinearWavyProgressIndicator(
         progress = { progress.coerceIn(0f, 1f) },
         modifier = modifier,
         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,

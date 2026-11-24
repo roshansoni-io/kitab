@@ -6,7 +6,7 @@ internal enum class BookCollectionSource(
 ) {
     Recent(
         savedStateKeyPrefix = "recent",
-        supportsListView = false,
+        supportsListView = true,
     ),
     Library(
         savedStateKeyPrefix = "library",

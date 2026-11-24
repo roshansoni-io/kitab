@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.roshansoni_io.kitab.core.data.model.Book
 import io.github.roshansoni_io.kitab.core.data.model.BookFilter
+import io.github.roshansoni_io.kitab.core.data.model.BookSortOrder
 import io.github.roshansoni_io.kitab.core.data.repository.BookRepository
 import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
 import kotlinx.coroutines.CancellationException
@@ -30,11 +31,16 @@ internal data class BookCollectionUiState(
     val books: List<Book> = emptyList(),
     val totalBookCount: Int = 0,
     val filter: BookFilter = BookFilter.All,
+    val sortOrder: BookSortOrder = BookSortOrder.LastOpened,
     val isListView: Boolean = false,
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
     val covers: Map<String, ImageBitmap> = emptyMap(),
     val pendingRemoval: Book? = null,
+    val pendingRename: Book? = null,
+    val pendingDetails: Book? = null,
+    val pendingClearHistory: Boolean = false,
+    val pendingFileDeletion: Book? = null,
 )
 
 internal sealed interface BookCollectionEffect {
@@ -50,6 +56,7 @@ internal class BookCollectionViewModel(
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private val filterKey = "${source.savedStateKeyPrefix}_filter"
+    private val sortOrderKey = "${source.savedStateKeyPrefix}_sort_order"
     private val searchActiveKey = "${source.savedStateKeyPrefix}_search_active"
     private val searchQueryKey = "${source.savedStateKeyPrefix}_search_query"
 
@@ -81,6 +88,23 @@ internal class BookCollectionViewModel(
                         books = sourceBooks,
                         filter = filter,
                         searchQuery = currentState.searchQuery,
+                        sortOrder = currentState.sortOrder,
+                    ),
+            )
+        }
+    }
+
+    fun onSortOrderChanged(sortOrder: BookSortOrder) {
+        savedStateHandle[sortOrderKey] = sortOrder.name
+        _uiState.update { currentState ->
+            currentState.copy(
+                sortOrder = sortOrder,
+                books =
+                    visibleBooks(
+                        books = sourceBooks,
+                        filter = currentState.filter,
+                        searchQuery = currentState.searchQuery,
+                        sortOrder = sortOrder,
                     ),
             )
         }
@@ -105,6 +129,7 @@ internal class BookCollectionViewModel(
                         books = sourceBooks,
                         filter = currentState.filter,
                         searchQuery = searchQuery,
+                        sortOrder = currentState.sortOrder,
                     ),
             )
         }
@@ -120,6 +145,7 @@ internal class BookCollectionViewModel(
                         books = sourceBooks,
                         filter = currentState.filter,
                         searchQuery = searchQuery,
+                        sortOrder = currentState.sortOrder,
                     ),
             )
         }
@@ -179,10 +205,82 @@ internal class BookCollectionViewModel(
         _uiState.update { it.copy(pendingRemoval = null) }
     }
 
+    fun onRenameRequested(book: Book) {
+        _uiState.update { it.copy(pendingRename = book) }
+    }
+
+    fun onRenameConfirmed(newTitle: String) {
+        val book = _uiState.value.pendingRename ?: return
+        _uiState.update { it.copy(pendingRename = null) }
+        viewModelScope.launch {
+            bookRepository.renameBook(book.uri, newTitle)
+            _effects.send(BookCollectionEffect.ShowSnackbar("Book renamed"))
+        }
+    }
+
+    fun onRenameDismissed() {
+        _uiState.update { it.copy(pendingRename = null) }
+    }
+
+    fun onDetailsRequested(book: Book) {
+        _uiState.update { it.copy(pendingDetails = book) }
+    }
+
+    fun onDetailsDismissed() {
+        _uiState.update { it.copy(pendingDetails = null) }
+    }
+
+    fun onResetProgressRequested(book: Book) {
+        viewModelScope.launch {
+            bookRepository.resetProgress(book.uri)
+            _effects.send(BookCollectionEffect.ShowSnackbar("Reading progress reset"))
+        }
+    }
+
+    fun onMarkCompletedRequested(book: Book) {
+        viewModelScope.launch {
+            bookRepository.markCompleted(book.uri)
+            _effects.send(BookCollectionEffect.ShowSnackbar("Marked as read"))
+        }
+    }
+
+    fun onClearHistoryRequested() {
+        _uiState.update { it.copy(pendingClearHistory = true) }
+    }
+
+    fun onClearHistoryConfirmed() {
+        _uiState.update { it.copy(pendingClearHistory = false) }
+        viewModelScope.launch {
+            bookRepository.clearRecentHistory()
+            _effects.send(BookCollectionEffect.ShowSnackbar("Reading history cleared"))
+        }
+    }
+
+    fun onClearHistoryDismissed() {
+        _uiState.update { it.copy(pendingClearHistory = false) }
+    }
+
+    fun onDeleteFileRequested(book: Book) {
+        _uiState.update { it.copy(pendingFileDeletion = book) }
+    }
+
+    fun onDeleteFileConfirmed() {
+        val book = _uiState.value.pendingFileDeletion ?: return
+        _uiState.update { it.copy(pendingFileDeletion = null) }
+        viewModelScope.launch {
+            bookRepository.deleteBookFile(book.uri)
+            _effects.send(BookCollectionEffect.ShowSnackbar("File deleted from device"))
+        }
+    }
+
+    fun onDeleteFileDismissed() {
+        _uiState.update { it.copy(pendingFileDeletion = null) }
+    }
+
     private fun publishBooks(allBooks: List<Book>) {
         val books =
             when (source) {
-                BookCollectionSource.Recent -> allBooks.sortedByDescending(Book::lastOpenedAt)
+                BookCollectionSource.Recent -> allBooks.filter { it.lastOpenedAt > 0 }
                 BookCollectionSource.Library -> allBooks.filter(Book::inLibrary)
             }
         sourceBooks = books
@@ -194,6 +292,7 @@ internal class BookCollectionViewModel(
                         books = books,
                         filter = currentState.filter,
                         searchQuery = currentState.searchQuery,
+                        sortOrder = currentState.sortOrder,
                     ),
                 totalBookCount = books.size,
             )
@@ -203,6 +302,7 @@ internal class BookCollectionViewModel(
     private fun initialUiState(): BookCollectionUiState =
         BookCollectionUiState(
             filter = savedFilter(),
+            sortOrder = savedSortOrder(),
             isListView = source.supportsListView && settingsRepository.settings.value.libraryListView,
             isSearchActive = savedStateHandle[searchActiveKey] ?: false,
             searchQuery = savedStateHandle[searchQueryKey] ?: "",
@@ -212,10 +312,15 @@ internal class BookCollectionViewModel(
         BookFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>(filterKey) }
             ?: BookFilter.All
 
+    private fun savedSortOrder(): BookSortOrder =
+        BookSortOrder.entries.firstOrNull { it.name == savedStateHandle.get<String>(sortOrderKey) }
+            ?: BookSortOrder.LastOpened
+
     private fun visibleBooks(
         books: List<Book>,
         filter: BookFilter,
         searchQuery: String,
+        sortOrder: BookSortOrder,
     ): List<Book> {
         val matchingBooks =
             if (searchQuery.isBlank()) {
@@ -224,10 +329,30 @@ internal class BookCollectionViewModel(
                 val normalizedQuery = searchQuery.trim()
                 books.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
             }
-        return when (filter) {
-            BookFilter.All -> matchingBooks
-            BookFilter.Recent -> matchingBooks.filter { it.lastOpenedAt > 0 }.sortedByDescending(Book::lastOpenedAt)
-            BookFilter.Starred -> matchingBooks.filter(Book::starred)
+        val filteredBooks =
+            when (filter) {
+                BookFilter.All -> matchingBooks
+                BookFilter.Recent -> matchingBooks.filter { it.lastOpenedAt > 0 }
+                BookFilter.Starred -> matchingBooks.filter(Book::starred)
+            }
+        return when (sortOrder) {
+            BookSortOrder.LastOpened -> {
+                filteredBooks.sortedByDescending { it.lastOpenedAt }
+            }
+
+            BookSortOrder.TitleAsc -> {
+                filteredBooks.sortedBy { it.title.lowercase() }
+            }
+
+            BookSortOrder.TitleDesc -> {
+                filteredBooks.sortedByDescending { it.title.lowercase() }
+            }
+
+            BookSortOrder.Progress -> {
+                filteredBooks.sortedByDescending {
+                    if (it.pageCount > 0) it.lastPage.toDouble() / it.pageCount else (it.epubProgress ?: 0.0)
+                }
+            }
         }
     }
 

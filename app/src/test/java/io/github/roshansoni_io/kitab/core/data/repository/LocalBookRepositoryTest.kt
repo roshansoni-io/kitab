@@ -223,6 +223,57 @@ class LocalBookRepositoryTest {
         assertNull(repository.openBook("content://missing.provider/book.pdf"))
     }
 
+    @Test
+    fun renameBook_updatesTitle() = runBlocking {
+        val book = addFakeBook()
+        repository.renameBook(book.uri, "Renamed Sample")
+        val updated = repository.books.value.firstOrNull { it.uri == book.uri }
+        assertEquals("Renamed Sample", updated?.title)
+    }
+
+    @Test
+    fun resetProgress_clearsProgressFields() = runBlocking {
+        val book = addFakeBook()
+        repository.updateProgress(book.uri, 10, 42)
+        repository.resetProgress(book.uri)
+        val updated = repository.books.value.firstOrNull { it.uri == book.uri }
+        assertEquals(0, updated?.lastPage)
+        assertNull(updated?.epubLocator)
+        assertEquals(0.0, updated?.epubProgress ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun markCompleted_setsPageCount() = runBlocking {
+        val book = addFakeBook()
+        repository.updateProgress(book.uri, 5, 42)
+        repository.markCompleted(book.uri)
+        val updated = repository.books.value.firstOrNull { it.uri == book.uri }
+        assertEquals(42, updated?.lastPage)
+    }
+
+    @Test
+    fun clearRecentHistory_resetsLastOpenedAtForLibraryBooks() = runBlocking {
+        val book = addFakeBook()
+        repository.updateProgress(book.uri, 2, 42)
+        assertTrue((repository.books.value.firstOrNull { it.uri == book.uri }?.lastOpenedAt ?: 0) > 0)
+
+        repository.clearRecentHistory()
+        val updated = repository.books.value.firstOrNull { it.uri == book.uri }
+        assertEquals(0L, updated?.lastOpenedAt)
+        assertTrue(updated?.inLibrary == true)
+    }
+
+    @Test
+    fun deleteBookFile_removesBookAndCachedFile() = runBlocking {
+        val book = addFakeBook()
+        val file = File(book.cachedPath)
+        assertTrue(file.exists())
+
+        repository.deleteBookFile(book.uri)
+        assertNull(repository.books.value.firstOrNull { it.uri == book.uri })
+        assertFalse(file.exists())
+    }
+
     private fun addFakeBook(): Book {
         register(FAKE_URI)
         return runBlocking {

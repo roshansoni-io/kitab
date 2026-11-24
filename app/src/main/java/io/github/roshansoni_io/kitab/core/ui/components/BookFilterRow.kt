@@ -9,10 +9,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SingleChoiceSegmentedButtonRowScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -69,7 +65,7 @@ private val BookFilter.label: String
 private val BookFilter.icon: Int
     get() =
         when (this) {
-            BookFilter.All -> R.drawable.ic_kitab_logo
+            BookFilter.All -> R.drawable.ic_book
             BookFilter.Recent -> R.drawable.ic_clock
             BookFilter.Starred -> R.drawable.ic_star
         }

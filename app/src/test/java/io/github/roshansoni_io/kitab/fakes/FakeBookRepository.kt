@@ -68,6 +68,33 @@ class FakeBookRepository : BookRepository {
         _books.value = _books.value.filterNot { it.uri == uri }
     }
 
+    override suspend fun removeFromLibrary(uri: String) {
+        replace(uri) { it.copy(inLibrary = false) }
+    }
+
+    override suspend fun renameBook(
+        uri: String,
+        newTitle: String,
+    ) {
+        replace(uri) { it.copy(title = newTitle) }
+    }
+
+    override suspend fun resetProgress(uri: String) {
+        replace(uri) { it.copy(lastPage = 0, epubLocator = null, epubProgress = 0.0) }
+    }
+
+    override suspend fun markCompleted(uri: String) {
+        replace(uri) { it.copy(lastPage = it.pageCount, epubProgress = 1.0) }
+    }
+
+    override suspend fun clearRecentHistory() {
+        _books.value = _books.value.filter { it.inLibrary }.map { it.copy(lastOpenedAt = 0) }
+    }
+
+    override suspend fun deleteBookFile(uri: String) {
+        removeBook(uri)
+    }
+
     override suspend fun loadCover(book: Book): Bitmap? = cover
 
     private fun replace(
