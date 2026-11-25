@@ -10,7 +10,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.data.model.BookSortOrder
 import io.github.roshansoni_io.kitab.core.data.repository.BookRepository
 import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
@@ -30,7 +29,6 @@ internal data class BookCollectionUiState(
     val isLoading: Boolean = true,
     val books: List<Book> = emptyList(),
     val totalBookCount: Int = 0,
-    val filter: BookFilter = BookFilter.All,
     val sortOrder: BookSortOrder = BookSortOrder.LastOpened,
     val isListView: Boolean = false,
     val isSearchActive: Boolean = false,
@@ -55,7 +53,6 @@ internal class BookCollectionViewModel(
     private val source: BookCollectionSource,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val filterKey = "${source.savedStateKeyPrefix}_filter"
     private val sortOrderKey = "${source.savedStateKeyPrefix}_sort_order"
     private val searchActiveKey = "${source.savedStateKeyPrefix}_search_active"
     private val searchQueryKey = "${source.savedStateKeyPrefix}_search_query"
@@ -78,22 +75,6 @@ internal class BookCollectionViewModel(
         }
     }
 
-    fun onFilterChanged(filter: BookFilter) {
-        savedStateHandle[filterKey] = filter.name
-        _uiState.update { currentState ->
-            currentState.copy(
-                filter = filter,
-                books =
-                    visibleBooks(
-                        books = sourceBooks,
-                        filter = filter,
-                        searchQuery = currentState.searchQuery,
-                        sortOrder = currentState.sortOrder,
-                    ),
-            )
-        }
-    }
-
     fun onSortOrderChanged(sortOrder: BookSortOrder) {
         savedStateHandle[sortOrderKey] = sortOrder.name
         _uiState.update { currentState ->
@@ -102,7 +83,6 @@ internal class BookCollectionViewModel(
                 books =
                     visibleBooks(
                         books = sourceBooks,
-                        filter = currentState.filter,
                         searchQuery = currentState.searchQuery,
                         sortOrder = sortOrder,
                     ),
@@ -127,7 +107,6 @@ internal class BookCollectionViewModel(
                 books =
                     visibleBooks(
                         books = sourceBooks,
-                        filter = currentState.filter,
                         searchQuery = searchQuery,
                         sortOrder = currentState.sortOrder,
                     ),
@@ -143,17 +122,10 @@ internal class BookCollectionViewModel(
                 books =
                     visibleBooks(
                         books = sourceBooks,
-                        filter = currentState.filter,
                         searchQuery = searchQuery,
                         sortOrder = currentState.sortOrder,
                     ),
             )
-        }
-    }
-
-    fun onStarRequested(book: Book) {
-        viewModelScope.launch {
-            bookRepository.setStarred(book.uri, !book.starred)
         }
     }
 
@@ -290,7 +262,6 @@ internal class BookCollectionViewModel(
                 books =
                     visibleBooks(
                         books = books,
-                        filter = currentState.filter,
                         searchQuery = currentState.searchQuery,
                         sortOrder = currentState.sortOrder,
                     ),
@@ -301,16 +272,11 @@ internal class BookCollectionViewModel(
 
     private fun initialUiState(): BookCollectionUiState =
         BookCollectionUiState(
-            filter = savedFilter(),
             sortOrder = savedSortOrder(),
             isListView = source.supportsListView && settingsRepository.settings.value.libraryListView,
             isSearchActive = savedStateHandle[searchActiveKey] ?: false,
             searchQuery = savedStateHandle[searchQueryKey] ?: "",
         )
-
-    private fun savedFilter(): BookFilter =
-        BookFilter.entries.firstOrNull { it.name == savedStateHandle.get<String>(filterKey) }
-            ?: BookFilter.All
 
     private fun savedSortOrder(): BookSortOrder =
         BookSortOrder.entries.firstOrNull { it.name == savedStateHandle.get<String>(sortOrderKey) }
@@ -318,7 +284,6 @@ internal class BookCollectionViewModel(
 
     private fun visibleBooks(
         books: List<Book>,
-        filter: BookFilter,
         searchQuery: String,
         sortOrder: BookSortOrder,
     ): List<Book> {
@@ -329,27 +294,21 @@ internal class BookCollectionViewModel(
                 val normalizedQuery = searchQuery.trim()
                 books.filter { book -> book.title.contains(normalizedQuery, ignoreCase = true) }
             }
-        val filteredBooks =
-            when (filter) {
-                BookFilter.All -> matchingBooks
-                BookFilter.Recent -> matchingBooks.filter { it.lastOpenedAt > 0 }
-                BookFilter.Starred -> matchingBooks.filter(Book::starred)
-            }
         return when (sortOrder) {
             BookSortOrder.LastOpened -> {
-                filteredBooks.sortedByDescending { it.lastOpenedAt }
+                matchingBooks.sortedByDescending { it.lastOpenedAt }
             }
 
             BookSortOrder.TitleAsc -> {
-                filteredBooks.sortedBy { it.title.lowercase() }
+                matchingBooks.sortedBy { it.title.lowercase() }
             }
 
             BookSortOrder.TitleDesc -> {
-                filteredBooks.sortedByDescending { it.title.lowercase() }
+                matchingBooks.sortedByDescending { it.title.lowercase() }
             }
 
             BookSortOrder.Progress -> {
-                filteredBooks.sortedByDescending {
+                matchingBooks.sortedByDescending {
                     if (it.pageCount > 0) it.lastPage.toDouble() / it.pageCount else (it.epubProgress ?: 0.0)
                 }
             }

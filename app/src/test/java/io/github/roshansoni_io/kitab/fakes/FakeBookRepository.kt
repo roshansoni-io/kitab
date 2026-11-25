@@ -56,13 +56,6 @@ class FakeBookRepository : BookRepository {
         replace(uri) { it.copy(epubLocator = locatorJson, epubProgress = progression) }
     }
 
-    override suspend fun setStarred(
-        uri: String,
-        starred: Boolean,
-    ) {
-        replace(uri) { it.copy(starred = starred) }
-    }
-
     override suspend fun removeBook(uri: String) {
         removedUris += uri
         _books.value = _books.value.filterNot { it.uri == uri }

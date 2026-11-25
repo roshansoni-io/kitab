@@ -2,7 +2,7 @@
 
 Feature packages own destination-specific UI and state. Routes connect a screen to its ViewModel and app-level callbacks; screens render the provided state and forward user actions. Shared book/settings data remains in [`core/data`](../core/data/README.md).
 
-- [`collection`](collection/README.md) presents recent and library books with search, filters, and the library list/grid choice.
+- [`collection`](collection/README.md) presents recent and library books with search and the library list/grid choice.
 - [`settings`](settings/README.md) edits appearance preferences and displays app information.
 - [`reader`](reader/README.md) opens a PDF and provides page reading, zoom, links, and text selection.
 

@@ -25,11 +25,6 @@ interface BookRepository {
         progression: Double,
     )
 
-    suspend fun setStarred(
-        uri: String,
-        starred: Boolean,
-    )
-
     suspend fun removeBook(uri: String)
 
     suspend fun removeFromLibrary(uri: String)

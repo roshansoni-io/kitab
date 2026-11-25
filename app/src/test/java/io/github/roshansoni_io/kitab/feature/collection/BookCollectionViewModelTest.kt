@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import io.github.roshansoni_io.kitab.MainDispatcherRule
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.data.model.BookSortOrder
 import io.github.roshansoni_io.kitab.fakes.FakeBookRepository
 import io.github.roshansoni_io.kitab.fakes.FakeSettingsRepository
@@ -52,19 +51,6 @@ class BookCollectionViewModelTest {
     }
 
     @Test
-    fun starredFilter_showsOnlyStarredBooks() {
-        repository.addInitialBooks(
-            libraryBook("a", "Alpha", isStarred = true),
-            libraryBook("b", "Beta"),
-        )
-        val viewModel = createViewModel(BookCollectionSource.Library)
-
-        viewModel.onFilterChanged(BookFilter.Starred)
-
-        assertEquals(listOf("a"), viewModel.uiState.value.books.map(Book::uri))
-    }
-
-    @Test
     fun search_filtersBooksByTitle() {
         repository.addInitialBooks(libraryBook("a", "Alpha"), libraryBook("b", "Beta"))
         val viewModel = createViewModel(BookCollectionSource.Library)
@@ -73,16 +59,6 @@ class BookCollectionViewModelTest {
         viewModel.onSearchQueryChanged("alp")
 
         assertEquals(listOf("a"), viewModel.uiState.value.books.map(Book::uri))
-    }
-
-    @Test
-    fun starringBook_updatesRepositoryBackedState() {
-        repository.addInitialBooks(libraryBook("a", "Alpha"))
-        val viewModel = createViewModel(BookCollectionSource.Library)
-
-        viewModel.onStarRequested(viewModel.uiState.value.books.first())
-
-        assertTrue(viewModel.uiState.value.books.first().starred)
     }
 
     @Test
@@ -121,19 +97,6 @@ class BookCollectionViewModelTest {
 
         assertFalse(viewModel.uiState.value.isListView)
         assertFalse(settingsRepository.settings.value.libraryListView)
-    }
-
-    @Test
-    fun libraryRecentFilter_sortsByLastOpenedAt() {
-        repository.addInitialBooks(
-            libraryBook("a", "Alpha", lastOpenedAt = 10),
-            libraryBook("b", "Beta", lastOpenedAt = 20),
-        )
-        val viewModel = createViewModel(BookCollectionSource.Library)
-
-        viewModel.onFilterChanged(BookFilter.Recent)
-
-        assertEquals(listOf("b", "a"), viewModel.uiState.value.books.map(Book::uri))
     }
 
     @Test
@@ -304,7 +267,6 @@ class BookCollectionViewModelTest {
     private fun libraryBook(
         uri: String,
         title: String,
-        isStarred: Boolean = false,
         lastOpenedAt: Long = 1,
     ): Book =
         Book(
@@ -312,7 +274,6 @@ class BookCollectionViewModelTest {
             cachedPath = "",
             title = title,
             inLibrary = true,
-            starred = isStarred,
             lastOpenedAt = lastOpenedAt,
         )
 

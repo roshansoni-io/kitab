@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -34,7 +33,6 @@ internal fun BookMenuButton(
     isExpanded: Boolean,
     book: Book,
     onExpandedChange: (Boolean) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
@@ -46,10 +44,6 @@ internal fun BookMenuButton(
     onRequestDeleteFile: ((Book) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val isCompleted =
-        (book.pageCount > 0 && book.lastPage >= book.pageCount - 1) ||
-            (book.epubProgress != null && book.epubProgress >= 0.99)
-    val hasProgress = book.lastPage > 0 || (book.epubProgress != null && book.epubProgress > 0.0)
 
     Box(modifier = modifier) {
         if (isCompact) {
@@ -112,55 +106,6 @@ internal fun BookMenuButton(
             }
         }
         DropdownMenu(expanded = isExpanded, onDismissRequest = { onExpandedChange(false) }) {
-            DropdownMenuItem(
-                text = { Text(text = if (book.starred) "Remove star" else "Star book") },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_star),
-                        contentDescription = null,
-                        tint =
-                            if (book.starred) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                },
-                onClick = {
-                    onExpandedChange(false)
-                    onToggleStar(book)
-                },
-            )
-            if (onMarkCompleted != null && !isCompleted) {
-                DropdownMenuItem(
-                    text = { Text(text = "Mark as read") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = null,
-                        )
-                    },
-                    onClick = {
-                        onExpandedChange(false)
-                        onMarkCompleted(book)
-                    },
-                )
-            }
-            if (onResetProgress != null && hasProgress) {
-                DropdownMenuItem(
-                    text = { Text(text = "Reset reading progress") },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_clock),
-                            contentDescription = null,
-                        )
-                    },
-                    onClick = {
-                        onExpandedChange(false)
-                        onResetProgress(book)
-                    },
-                )
-            }
             if (onRequestRename != null) {
                 DropdownMenuItem(
                     text = { Text(text = "Rename book") },

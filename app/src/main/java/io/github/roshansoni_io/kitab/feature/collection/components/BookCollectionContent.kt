@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -24,10 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
-import io.github.roshansoni_io.kitab.core.ui.components.BookFilterRow
-import io.github.roshansoni_io.kitab.core.ui.components.EmptyFilterState
 import io.github.roshansoni_io.kitab.core.ui.components.EmptyLibraryState
+import io.github.roshansoni_io.kitab.core.ui.components.EmptyRecentState
 import io.github.roshansoni_io.kitab.core.ui.components.LoadingState
 import io.github.roshansoni_io.kitab.core.ui.components.SearchEmptyState
 import io.github.roshansoni_io.kitab.feature.collection.BookCollectionSource
@@ -38,10 +35,8 @@ internal fun BookCollectionContent(
     uiState: BookCollectionUiState,
     source: BookCollectionSource,
     contentPadding: PaddingValues,
-    onFilterSelected: (BookFilter) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCoverRequested: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     onShowDetails: ((Book) -> Unit)? = null,
@@ -59,25 +54,19 @@ internal fun BookCollectionContent(
             SearchEmptyState(uiState.searchQuery, contentPadding)
         }
 
-        uiState.books.isEmpty() && uiState.totalBookCount == 0 -> {
+        uiState.books.isEmpty() -> {
             when (source) {
-                BookCollectionSource.Recent -> EmptyFilterState(BookFilter.Recent, contentPadding)
+                BookCollectionSource.Recent -> EmptyRecentState(contentPadding)
                 BookCollectionSource.Library -> EmptyLibraryState(contentPadding)
             }
-        }
-
-        uiState.books.isEmpty() -> {
-            EmptyFilterState(uiState.filter, contentPadding)
         }
 
         source == BookCollectionSource.Recent && !uiState.isListView -> {
             BookCarousel(
                 uiState = uiState,
                 contentPadding = contentPadding,
-                onFilterSelected = onFilterSelected,
                 onOpenBook = onOpenBook,
                 onCoverRequested = onCoverRequested,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -92,10 +81,8 @@ internal fun BookCollectionContent(
             BookList(
                 uiState = uiState,
                 contentPadding = contentPadding,
-                onFilterSelected = onFilterSelected,
                 onOpenBook = onOpenBook,
                 onCoverRequested = onCoverRequested,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -110,10 +97,8 @@ internal fun BookCollectionContent(
             BookGrid(
                 uiState = uiState,
                 contentPadding = contentPadding,
-                onFilterSelected = onFilterSelected,
                 onOpenBook = onOpenBook,
                 onCoverRequested = onCoverRequested,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -131,10 +116,8 @@ internal fun BookCollectionContent(
 private fun BookCarousel(
     uiState: BookCollectionUiState,
     contentPadding: PaddingValues,
-    onFilterSelected: (BookFilter) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCoverRequested: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     onShowDetails: ((Book) -> Unit)? = null,
@@ -148,15 +131,10 @@ private fun BookCarousel(
             Modifier
                 .fillMaxSize()
                 .padding(
-                    top = contentPadding.calculateTopPadding(),
+                    top = contentPadding.calculateTopPadding() + 20.dp,
                     bottom = contentPadding.calculateBottomPadding(),
                 ),
     ) {
-        CollectionHeader(
-            filter = uiState.filter,
-            onFilterSelected = onFilterSelected,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-        )
         HorizontalUncontainedCarousel(
             state = rememberCarouselState { uiState.books.size },
             itemWidth = 160.dp,
@@ -173,7 +151,6 @@ private fun BookCarousel(
                 cover = uiState.covers[book.uri],
                 onCoverRequested = onCoverRequested,
                 onOpenBook = onOpenBook,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -191,10 +168,8 @@ private fun BookCarousel(
 private fun BookGrid(
     uiState: BookCollectionUiState,
     contentPadding: PaddingValues,
-    onFilterSelected: (BookFilter) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCoverRequested: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     onShowDetails: ((Book) -> Unit)? = null,
@@ -209,7 +184,7 @@ private fun BookGrid(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
             PaddingValues(
-                top = contentPadding.calculateTopPadding() + 4.dp,
+                top = contentPadding.calculateTopPadding() + 20.dp,
                 bottom = contentPadding.calculateBottomPadding() + 120.dp,
                 start = contentPadding.calculateStartPadding(layoutDirection) + 16.dp,
                 end = contentPadding.calculateEndPadding(layoutDirection) + 16.dp,
@@ -217,19 +192,12 @@ private fun BookGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            CollectionHeader(
-                filter = uiState.filter,
-                onFilterSelected = onFilterSelected,
-            )
-        }
         items(uiState.books, key = Book::uri) { book ->
             BookCoverCard(
                 book = book,
                 cover = uiState.covers[book.uri],
                 onCoverRequested = onCoverRequested,
                 onOpenBook = onOpenBook,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -250,10 +218,8 @@ private fun BookGrid(
 private fun BookList(
     uiState: BookCollectionUiState,
     contentPadding: PaddingValues,
-    onFilterSelected: (BookFilter) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCoverRequested: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     onShowDetails: ((Book) -> Unit)? = null,
@@ -267,26 +233,19 @@ private fun BookList(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
             PaddingValues(
-                top = contentPadding.calculateTopPadding() + 4.dp,
+                top = contentPadding.calculateTopPadding() + 20.dp,
                 bottom = contentPadding.calculateBottomPadding() + 120.dp,
                 start = contentPadding.calculateStartPadding(layoutDirection) + 20.dp,
                 end = contentPadding.calculateEndPadding(layoutDirection) + 20.dp,
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            CollectionHeader(
-                filter = uiState.filter,
-                onFilterSelected = onFilterSelected,
-            )
-        }
         items(uiState.books, key = Book::uri) { book ->
             BookListRow(
                 book = book,
                 cover = uiState.covers[book.uri],
                 onCoverRequested = onCoverRequested,
                 onOpenBook = onOpenBook,
-                onToggleStar = onToggleStar,
                 onAddToLibrary = onAddToLibrary,
                 onRequestRemove = onRequestRemove,
                 onShowDetails = onShowDetails,
@@ -297,19 +256,6 @@ private fun BookList(
             )
         }
     }
-}
-
-@Composable
-private fun CollectionHeader(
-    filter: BookFilter,
-    onFilterSelected: (BookFilter) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    BookFilterRow(
-        selectedFilter = filter,
-        onSelectFilter = onFilterSelected,
-        modifier = modifier.fillMaxWidth(),
-    )
 }
 
 private fun loadingMessage(source: BookCollectionSource): String =

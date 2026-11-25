@@ -13,14 +13,7 @@ data class Book(
     val epubProgress: Double? = null,
     val lastOpenedAt: Long = 0,
     val inLibrary: Boolean = false,
-    val starred: Boolean = false,
 )
-
-enum class BookFilter {
-    All,
-    Recent,
-    Starred,
-}
 
 enum class BookSortOrder {
     LastOpened,

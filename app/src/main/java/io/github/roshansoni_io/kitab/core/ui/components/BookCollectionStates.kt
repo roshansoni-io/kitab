@@ -29,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.R
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -71,47 +70,16 @@ internal fun EmptyLibraryState(contentPadding: PaddingValues) {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun EmptyFilterState(
-    filter: BookFilter,
-    contentPadding: PaddingValues,
-) {
-    when (filter) {
-        BookFilter.All -> {
-            EmptyState(
-                title = "No books yet",
-                message = "Tap Add Book to start your collection.",
-                contentPadding = contentPadding,
-                iconRes = R.drawable.ic_book,
-                badgeShape = MaterialShapes.Cookie12Sided.toShape(),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
-
-        BookFilter.Recent -> {
-            EmptyState(
-                title = "Nothing opened yet",
-                message = "Books you open will show up here.",
-                contentPadding = contentPadding,
-                iconRes = R.drawable.ic_clock,
-                badgeShape = MaterialShapes.Cookie6Sided.toShape(),
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
-        }
-
-        BookFilter.Starred -> {
-            EmptyState(
-                title = "No starred books",
-                message = "Tap the star on a book to save it here.",
-                contentPadding = contentPadding,
-                iconRes = R.drawable.ic_star,
-                badgeShape = MaterialShapes.Sunny.toShape(),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-        }
-    }
+internal fun EmptyRecentState(contentPadding: PaddingValues) {
+    EmptyState(
+        title = "Nothing opened yet",
+        message = "Books you open will show up here.",
+        contentPadding = contentPadding,
+        iconRes = R.drawable.ic_clock,
+        badgeShape = MaterialShapes.Cookie6Sided.toShape(),
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    )
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

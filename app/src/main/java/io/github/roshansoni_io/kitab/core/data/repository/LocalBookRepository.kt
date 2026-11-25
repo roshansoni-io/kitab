@@ -146,21 +146,6 @@ class LocalBookRepository(
             }
         }
 
-    override suspend fun setStarred(
-        uri: String,
-        starred: Boolean,
-    ): Unit =
-        withContext(Dispatchers.IO) {
-            initialize()
-            withBookLock {
-                updateBooks { currentBooks ->
-                    currentBooks.map { book ->
-                        if (book.uri == uri) book.copy(starred = starred) else book
-                    }
-                }
-            }
-        }
-
     override suspend fun removeBook(uri: String): Unit =
         withContext(Dispatchers.IO) {
             initialize()

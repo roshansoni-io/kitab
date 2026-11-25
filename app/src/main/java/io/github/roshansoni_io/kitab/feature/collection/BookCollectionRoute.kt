@@ -37,7 +37,6 @@ internal fun BookCollectionRoute(
     BookCollectionScreen(
         uiState = uiState,
         source = source,
-        onFilterChanged = collectionViewModel::onFilterChanged,
         onListViewChanged = collectionViewModel::onListViewChanged,
         onSortOrderChanged = collectionViewModel::onSortOrderChanged,
         onSearchVisibilityChanged = collectionViewModel::onSearchVisibilityChanged,
@@ -45,7 +44,6 @@ internal fun BookCollectionRoute(
         onOpenBook = { book -> onOpenBook(book.uri) },
         onCoverRequested = collectionViewModel::onCoverRequested,
         onAddBook = onAddBook,
-        onStarRequested = collectionViewModel::onStarRequested,
         onAddToLibrary = collectionViewModel::onAddToLibrary,
         onRemoveRequested = collectionViewModel::onRemoveRequested,
         onRemovalConfirmed = collectionViewModel::onRemovalConfirmed,

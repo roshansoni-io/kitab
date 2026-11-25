@@ -182,18 +182,6 @@ class LocalBookRepositoryTest {
     }
 
     @Test
-    fun setStarred_persistsState() = runBlocking {
-        val book = addFakeBook()
-        assertFalse(book.starred)
-
-        repository.setStarred(book.uri, true)
-        assertTrue(repository.books.value.first { it.uri == book.uri }.starred)
-
-        repository.setStarred(book.uri, false)
-        assertFalse(repository.books.value.first { it.uri == book.uri }.starred)
-    }
-
-    @Test
     fun removeBook_deletesPrivatePdfThumbnailAndEntry() = runBlocking {
         val book = addFakeBook()
         val stored = File(book.cachedPath)

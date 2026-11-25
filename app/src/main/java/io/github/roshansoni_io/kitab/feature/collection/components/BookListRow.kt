@@ -3,20 +3,12 @@ package io.github.roshansoni_io.kitab.feature.collection.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -49,7 +40,6 @@ internal fun BookListRow(
     cover: ImageBitmap?,
     onCoverRequested: (Book) -> Unit,
     onOpenBook: (Book) -> Unit,
-    onToggleStar: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRequestRemove: (Book) -> Unit,
     modifier: Modifier = Modifier,
@@ -103,22 +93,18 @@ internal fun BookListRow(
                 )
             },
             trailingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BookMenuButton(
-                        isExpanded = isOverflowMenuExpanded,
-                        book = book,
-                        onExpandedChange = { isOverflowMenuExpanded = it },
-                        onToggleStar = onToggleStar,
-                        onAddToLibrary = onAddToLibrary,
-                        onRequestRemove = onRequestRemove,
-                        onShowDetails = onShowDetails,
-                        onRequestRename = onRequestRename,
-                        onResetProgress = onResetProgress,
-                        onMarkCompleted = onMarkCompleted,
-                        onRequestDeleteFile = onRequestDeleteFile,
-                    )
-                    StarButton(book = book, onToggleStar = onToggleStar)
-                }
+                BookMenuButton(
+                    isExpanded = isOverflowMenuExpanded,
+                    book = book,
+                    onExpandedChange = { isOverflowMenuExpanded = it },
+                    onAddToLibrary = onAddToLibrary,
+                    onRequestRemove = onRequestRemove,
+                    onShowDetails = onShowDetails,
+                    onRequestRename = onRequestRename,
+                    onResetProgress = onResetProgress,
+                    onMarkCompleted = onMarkCompleted,
+                    onRequestDeleteFile = onRequestDeleteFile,
+                )
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.padding(vertical = 6.dp),
@@ -131,31 +117,5 @@ internal fun BookListRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun StarButton(
-    book: Book,
-    onToggleStar: (Book) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    IconToggleButton(
-        checked = book.starred,
-        onCheckedChange = { onToggleStar(book) },
-        shapes = IconButtonDefaults.toggleableShapes(),
-        colors =
-            IconButtonDefaults.iconToggleButtonColors(
-                checkedContentColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-        modifier = modifier,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Star,
-            contentDescription = if (book.starred) "Remove star" else "Star book",
-            modifier = Modifier.size(22.dp),
-        )
     }
 }

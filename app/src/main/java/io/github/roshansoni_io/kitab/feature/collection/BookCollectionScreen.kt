@@ -10,7 +10,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import io.github.roshansoni_io.kitab.core.data.model.Book
-import io.github.roshansoni_io.kitab.core.data.model.BookFilter
 import io.github.roshansoni_io.kitab.core.data.model.BookSortOrder
 import io.github.roshansoni_io.kitab.core.ui.components.BookDetailsDialog
 import io.github.roshansoni_io.kitab.core.ui.components.BookHeader
@@ -25,7 +24,6 @@ import io.github.roshansoni_io.kitab.feature.collection.components.CollectionVie
 internal fun BookCollectionScreen(
     uiState: BookCollectionUiState,
     source: BookCollectionSource,
-    onFilterChanged: (BookFilter) -> Unit,
     onListViewChanged: (Boolean) -> Unit,
     onSortOrderChanged: (BookSortOrder) -> Unit,
     onSearchVisibilityChanged: (Boolean) -> Unit,
@@ -33,7 +31,6 @@ internal fun BookCollectionScreen(
     onOpenBook: (Book) -> Unit,
     onCoverRequested: (Book) -> Unit,
     onAddBook: () -> Unit,
-    onStarRequested: (Book) -> Unit,
     onAddToLibrary: (Book) -> Unit,
     onRemoveRequested: (Book) -> Unit,
     onRemovalConfirmed: () -> Unit,
@@ -85,10 +82,8 @@ internal fun BookCollectionScreen(
             uiState = uiState,
             source = source,
             contentPadding = contentPadding,
-            onFilterSelected = onFilterChanged,
             onOpenBook = onOpenBook,
             onCoverRequested = onCoverRequested,
-            onToggleStar = onStarRequested,
             onAddToLibrary = onAddToLibrary,
             onRequestRemove = onRemoveRequested,
             onShowDetails = onShowDetails,
