@@ -42,8 +42,62 @@ internal fun ReaderBottomBar(
     if (pageCount < 2) return
 
     val scope = rememberCoroutineScope()
-    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // While dragging, hold the thumb under the finger locally; writing the
+    // value to pagerState.currentPage on every change would snap it between
+    // settled pages and spawn a coroutine per drag tick.
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var sliderDragValue by remember { mutableFloatStateOf(0f) }
 
+    val displayedPage =
+        if (isDraggingSlider) {
+            sliderDragValue.roundToInt()
+        } else {
+            pagerState.currentPage + pagerState.currentPageOffsetFraction.roundToInt()
+        }
+    val label = String.format(Locale.US, "%d/%d", displayedPage.coerceIn(0, pageCount - 1) + 1, pageCount)
+
+    ReaderBottomBar(
+        progress = if (isDraggingSlider) sliderDragValue else pagerState.currentPage.toFloat(),
+        label = label,
+        onSeek = { value ->
+            isDraggingSlider = true
+            sliderDragValue = value
+            onDragPage(value.roundToInt().coerceIn(0, pageCount - 1))
+        },
+        onSeekFinished = {
+            isDraggingSlider = false
+            onReleasePage(sliderDragValue.roundToInt().coerceIn(0, pageCount - 1))
+        },
+        onPrevious = {
+            scope.launch {
+                pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
+            }
+        },
+        onNext = {
+            scope.launch {
+                pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(pageCount - 1))
+            }
+        },
+        valueRange = 0f..(pageCount - 1).coerceAtLeast(1).toFloat(),
+        canGoPrevious = pagerState.currentPage > 0,
+        canGoNext = pagerState.currentPage < pageCount - 1,
+        isInteracting = isDraggingSlider,
+    )
+}
+
+@Composable
+internal fun ReaderBottomBar(
+    progress: Float,
+    label: String,
+    onSeek: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    canGoPrevious: Boolean = true,
+    canGoNext: Boolean = true,
+    isInteracting: Boolean = false,
+) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
             modifier =
@@ -55,12 +109,8 @@ internal fun ReaderBottomBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             IconButton(
-                onClick = {
-                    scope.launch {
-                        pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
-                    }
-                },
-                enabled = pagerState.currentPage > 0,
+                onClick = onPrevious,
+                enabled = canGoPrevious,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -68,48 +118,25 @@ internal fun ReaderBottomBar(
                 )
             }
 
-            // While dragging, hold the thumb under the finger locally; writing the
-            // value to pagerState.currentPage on every change would snap it between
-            // settled pages and spawn a coroutine per drag tick.
-            var isDraggingSlider by remember { mutableStateOf(false) }
-            var sliderDragValue by remember { mutableFloatStateOf(0f) }
             ReaderPageSlider(
-                value = if (isDraggingSlider) sliderDragValue else pagerState.currentPage.toFloat(),
-                pageCount = pageCount,
-                onValueChanged = { value ->
-                    isDraggingSlider = true
-                    sliderDragValue = value
-                    onDragPage(value.roundToInt().coerceIn(0, pageCount - 1))
-                },
-                onValueChangeFinished = {
-                    isDraggingSlider = false
-                    onReleasePage(sliderDragValue.roundToInt().coerceIn(0, pageCount - 1))
-                },
+                value = progress,
+                onValueChanged = onSeek,
+                onValueChangeFinished = onSeekFinished,
+                valueRange = valueRange,
+                isInteracting = isInteracting,
                 modifier = Modifier.weight(1f),
             )
 
-            // Live while dragging the slider (the pager itself only settles on release)
-            // and during interactive swipes (fraction crosses ±0.5 halfway through).
-            val displayedPage =
-                if (isDraggingSlider) {
-                    sliderDragValue.roundToInt()
-                } else {
-                    pagerState.currentPage + pagerState.currentPageOffsetFraction.roundToInt()
-                }
             Text(
-                text = String.format(Locale.US, "%d/%d", displayedPage.coerceIn(0, pageCount - 1) + 1, pageCount),
+                text = label,
                 style = MaterialTheme.typography.titleMedium,
-                color = contentColor,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
 
             IconButton(
-                onClick = {
-                    scope.launch {
-                        pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(pageCount - 1))
-                    }
-                },
-                enabled = pagerState.currentPage < pageCount - 1,
+                onClick = onNext,
+                enabled = canGoNext,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,

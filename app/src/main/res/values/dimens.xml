@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Let Compose safeDrawingPadding control vertical insets instead of Readium's 40dp padding. -->
+    <dimen name="readium_navigator_epub_vertical_padding">0dp</dimen>
+</resources>

@@ -31,6 +31,7 @@ data class AppSettings(
     val keepScreenAwake: Boolean = false,
     val selectionColor: SelectionColor = SelectionColor.Blue,
     val readerPageTone: ReaderPageTone = ReaderPageTone.Theme,
+    val readerTheme: ThemeMode = ThemeMode.System,
     val readerPaging: ReaderPaging = ReaderPaging.Horizontal,
     val readerTextSize: ReaderTextSize = ReaderTextSize.Medium,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,

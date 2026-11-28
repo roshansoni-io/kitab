@@ -1,20 +1,13 @@
 package io.github.roshansoni_io.kitab.feature.reader
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.roshansoni_io.kitab.core.data.model.ResumeBehavior
 import io.github.roshansoni_io.kitab.core.data.repository.BookRepository
 import io.github.roshansoni_io.kitab.core.data.repository.SettingsRepository
+import io.github.roshansoni_io.kitab.core.ui.theme.KitabTheme
+import io.github.roshansoni_io.kitab.core.ui.theme.isDarkTheme
 
 @Composable
 internal fun ReaderRoute(
@@ -31,22 +24,16 @@ internal fun ReaderRoute(
     val book = books.firstOrNull { it.uri == bookUri }
 
     if (book == null) {
-        ReaderScaffold(
-            bookTitle = "Book unavailable",
-            onBack = onBack,
-            chromeVisible = true,
-            bottomBar = {},
+        ReaderSystemBarsEffect(
+            readerDarkTheme = isDarkTheme(settings.readerTheme),
+            appDarkTheme = isDarkTheme(settings.themeMode),
+        )
+        KitabTheme(
+            themeMode = settings.readerTheme,
+            dynamicColor = settings.dynamicColor,
+            customSeedColor = settings.customSeedColor,
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize().statusBarsPadding(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "This book is no longer available.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
-            }
+            ReaderUnavailableScreen(onBack = onBack)
         }
         return
     }

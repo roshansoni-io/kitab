@@ -1,32 +1,38 @@
 package io.github.roshansoni_io.kitab.feature.reader
 
 import androidx.compose.material3.Slider
-import androidx.compose.material3.rememberSliderState
+import androidx.compose.material3.SliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
 /**
  * The page-position slider. Presentational only — [value] and the change
  * callbacks are owned by the caller so the rest of the bar can show the dragged
- * page live.
+ * position live without fighting ongoing user input.
  */
 @Composable
 internal fun ReaderPageSlider(
     value: Float,
-    pageCount: Int,
     onValueChanged: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
     modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    isInteracting: Boolean = false,
 ) {
+    val clamped = value.coerceIn(valueRange.start, valueRange.endInclusive)
     val sliderState =
-        rememberSliderState(
-            value = value,
-            0,
-            0f..(pageCount - 1).coerceAtLeast(1).toFloat(),
-        )
-    LaunchedEffect(value) {
-        sliderState.value = value
+        remember(valueRange) {
+            SliderState(
+                value = clamped,
+                trackRange = valueRange,
+            )
+        }
+    LaunchedEffect(clamped, isInteracting) {
+        if (!isInteracting) {
+            sliderState.value = clamped
+        }
     }
     Slider(
         state = sliderState,

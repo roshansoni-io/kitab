@@ -35,6 +35,8 @@ class SharedPreferencesSettingsRepository(
 
     override fun setReaderPageTone(tone: ReaderPageTone) = update { it.copy(readerPageTone = tone) }
 
+    override fun setReaderTheme(themeMode: ThemeMode) = update { it.copy(readerTheme = themeMode) }
+
     override fun setReaderPaging(paging: ReaderPaging) = update { it.copy(readerPaging = paging) }
 
     override fun setReaderTextSize(size: ReaderTextSize) = update { it.copy(readerTextSize = size) }
@@ -55,6 +57,7 @@ class SharedPreferencesSettingsRepository(
             .putBoolean(KEY_KEEP_AWAKE, updated.keepScreenAwake)
             .putString(KEY_SELECTION_COLOR, updated.selectionColor.name)
             .putString(KEY_PAGE_TONE, updated.readerPageTone.name)
+            .putString(KEY_READER_THEME, updated.readerTheme.name)
             .putString(KEY_PAGING, updated.readerPaging.name)
             .putString(KEY_TEXT_SIZE, updated.readerTextSize.name)
             .putString(KEY_RESUME, updated.resumeBehavior.name)
@@ -72,6 +75,7 @@ class SharedPreferencesSettingsRepository(
             keepScreenAwake = prefs.getBoolean(KEY_KEEP_AWAKE, false),
             selectionColor = enumPreference(KEY_SELECTION_COLOR, SelectionColor.Blue),
             readerPageTone = enumPreference(KEY_PAGE_TONE, ReaderPageTone.Theme),
+            readerTheme = enumPreference(KEY_READER_THEME, ThemeMode.System),
             readerPaging = enumPreference(KEY_PAGING, ReaderPaging.Horizontal),
             readerTextSize = enumPreference(KEY_TEXT_SIZE, ReaderTextSize.Medium),
             resumeBehavior = enumPreference(KEY_RESUME, ResumeBehavior.Resume),
@@ -119,6 +123,7 @@ class SharedPreferencesSettingsRepository(
         const val KEY_KEEP_AWAKE = "keep_screen_awake"
         const val KEY_SELECTION_COLOR = "selection_color"
         const val KEY_PAGE_TONE = "reader_page_tone"
+        const val KEY_READER_THEME = "reader_theme"
         const val KEY_PAGING = "reader_paging"
         const val KEY_TEXT_SIZE = "reader_text_size"
         const val KEY_RESUME = "resume_behavior"

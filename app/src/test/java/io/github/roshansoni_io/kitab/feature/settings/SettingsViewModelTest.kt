@@ -50,4 +50,13 @@ class SettingsViewModelTest {
 
         assertEquals(ReaderTextSize.Large, repository.settings.value.readerTextSize)
     }
+
+    @Test
+    fun readerThemeEvent_updatesRepository() {
+        val viewModel = SettingsViewModel(repository)
+
+        viewModel.onEvent(SettingsEvent.SetReaderTheme(ThemeMode.Light))
+
+        assertEquals(ThemeMode.Light, repository.settings.value.readerTheme)
+    }
 }

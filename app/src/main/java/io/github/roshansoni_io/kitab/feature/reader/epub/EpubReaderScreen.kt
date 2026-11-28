@@ -24,7 +24,7 @@ internal fun EpubReaderScreen(
     onOpenExternalLink: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val darkTheme = isDarkTheme(settings.themeMode)
+    val darkTheme = isDarkTheme(settings.readerTheme)
     val preferences = remember(settings, darkTheme) { settings.toEpubPreferences(darkTheme) }
     val path = book.cachedPath
     // Reuses the session surviving a configuration change; a fresh process opens it below.

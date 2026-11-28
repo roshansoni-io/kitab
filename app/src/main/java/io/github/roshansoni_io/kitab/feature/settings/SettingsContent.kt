@@ -1,13 +1,13 @@
 package io.github.roshansoni_io.kitab.feature.settings
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -28,15 +29,14 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.roshansoni_io.kitab.BuildConfig
 import io.github.roshansoni_io.kitab.R
@@ -97,6 +98,11 @@ internal fun SettingsContent(
     val aboutContainer = MaterialTheme.colorScheme.surfaceContainerHighest
     val aboutContent = MaterialTheme.colorScheme.onSurface
 
+    val itemColors =
+        ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        )
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
@@ -113,65 +119,111 @@ internal fun SettingsContent(
         }
 
         item {
-            SettingsSection(title = "Appearance") {
-                SettingsItem(
-                    title = "Theme",
-                    iconRes = R.drawable.ic_palette,
-                    badgeShape = appearanceBadgeShape,
-                    badgeContainerColor = appearanceContainer,
-                    badgeContentColor = appearanceContent,
-                    supporting = "Choose light, dark, or follow the system",
-                )
-                ThemeSelector(
-                    selected = uiState.themeMode,
-                    onSelect = { onEvent(SettingsEvent.SetThemeMode(it)) },
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                )
-                SettingsSwitchItem(
-                    title = "Dynamic color",
-                    supporting =
-                        if (supportsDynamicColor) {
-                            "Use colors from your wallpaper"
-                        } else {
-                            "Requires Android 12 or later"
+            SettingsGroup(title = "Appearance") {
+                Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column {
+                            ListItem(
+                                supportingContent = { Text("Choose light, dark, or follow the system") },
+                                leadingContent = {
+                                    SettingsBadge(
+                                        shape = appearanceBadgeShape,
+                                        containerColor = appearanceContainer,
+                                        contentColor = appearanceContent,
+                                        iconRes = R.drawable.ic_palette,
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            ) {
+                                Text("Theme")
+                            }
+                            EnumSelector(
+                                title = null,
+                                options = ThemeMode.entries,
+                                selected = uiState.themeMode,
+                                label = { it.label },
+                                onSelect = { onEvent(SettingsEvent.SetThemeMode(it)) },
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
+
+                    SegmentedListItem(
+                        checked = uiState.dynamicColor && supportsDynamicColor,
+                        onCheckedChange = { onEvent(SettingsEvent.SetDynamicColor(it)) },
+                        shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                        colors = itemColors,
+                        enabled = supportsDynamicColor,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = appearanceBadgeShape,
+                                containerColor = appearanceContainer,
+                                contentColor = appearanceContent,
+                                iconRes = R.drawable.ic_auto_awesome,
+                            )
                         },
-                    iconRes = R.drawable.ic_auto_awesome,
-                    badgeShape = appearanceBadgeShape,
-                    badgeContainerColor = appearanceContainer,
-                    badgeContentColor = appearanceContent,
-                    checked = uiState.dynamicColor && supportsDynamicColor,
-                    enabled = supportsDynamicColor,
-                    onCheckedChange = { onEvent(SettingsEvent.SetDynamicColor(it)) },
-                )
-                SettingsItem(
-                    title = "Custom color",
-                    supporting =
-                        if (uiState.dynamicColor &&
-                            supportsDynamicColor
-                        ) {
-                            "Using wallpaper colors"
-                        } else {
-                            "Choose a seed color for the Material 3 palette"
+                        supportingContent = {
+                            Text(
+                                if (supportsDynamicColor) {
+                                    "Use colors from your wallpaper"
+                                } else {
+                                    "Requires Android 12 or later"
+                                },
+                            )
                         },
-                    iconRes = R.drawable.ic_color_lens,
-                    badgeShape = appearanceBadgeShape,
-                    badgeContainerColor = appearanceContainer,
-                    badgeContentColor = appearanceContent,
-                    interactionModifier = Modifier.clickable(role = Role.Button) { isColorPickerVisible = true },
-                    trailing = {
-                        Surface(
-                            color = Color(uiState.customSeedColor),
-                            shape = CircleShape,
-                            modifier = Modifier.size(28.dp),
-                        ) {}
-                    },
-                )
+                        trailingContent = {
+                            Switch(
+                                checked = uiState.dynamicColor && supportsDynamicColor,
+                                onCheckedChange = null,
+                                enabled = supportsDynamicColor,
+                            )
+                        },
+                    ) {
+                        Text("Dynamic color")
+                    }
+
+                    SegmentedListItem(
+                        onClick = { isColorPickerVisible = true },
+                        shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                        colors = itemColors,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = appearanceBadgeShape,
+                                containerColor = appearanceContainer,
+                                contentColor = appearanceContent,
+                                iconRes = R.drawable.ic_color_lens,
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                if (uiState.dynamicColor && supportsDynamicColor) {
+                                    "Using wallpaper colors"
+                                } else {
+                                    "Choose a seed color for the Material 3 palette"
+                                },
+                            )
+                        },
+                        trailingContent = {
+                            Surface(
+                                color = Color(uiState.customSeedColor),
+                                shape = CircleShape,
+                                modifier = Modifier.size(28.dp),
+                            ) {}
+                        },
+                    ) {
+                        Text("Custom color")
+                    }
+                }
             }
         }
 
         item {
             SettingsSection(title = "Reading") {
-                SettingsSwitchItem(
+                SettingsSwitchRow(
                     title = "Keep screen awake",
                     supporting = "Prevent the screen from turning off while reading",
                     iconRes = R.drawable.ic_visibility,
@@ -190,7 +242,7 @@ internal fun SettingsContent(
                 EnumSelector("When opening a book", ResumeBehavior.entries, uiState.resumeBehavior, { it.label }) {
                     onEvent(SettingsEvent.SetResumeBehavior(it))
                 }
-                SettingsSwitchItem(
+                SettingsSwitchRow(
                     title = "Show reader controls",
                     supporting = "Show the page controls when opening a book",
                     iconRes = R.drawable.ic_tune,
@@ -200,70 +252,99 @@ internal fun SettingsContent(
                     checked = uiState.readerControlsInitiallyVisible,
                     onCheckedChange = { onEvent(SettingsEvent.SetControlsInitiallyVisible(it)) },
                 )
+                EnumSelector("Reader theme", ThemeMode.entries, uiState.readerTheme, { it.label }) {
+                    onEvent(SettingsEvent.SetReaderTheme(it))
+                }
                 EnumSelector("Page tone", ReaderPageTone.entries, uiState.readerPageTone, { it.label }) {
                     onEvent(SettingsEvent.SetPageTone(it))
                 }
-                EnumSelector("Selection color", SelectionColor.entries, uiState.selectionColor, { it.label }) {
+                EnumSelector(
+                    title = "Selection color",
+                    options = SelectionColor.entries,
+                    selected = uiState.selectionColor,
+                    label = { it.label },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                ) {
                     onEvent(SettingsEvent.SetSelectionColor(it))
                 }
             }
         }
 
         item {
-            SettingsSection(title = "Support") {
-                SettingsItem(
-                    title = "Report a bug or request a feature",
-                    supporting = "Share feedback or tell us what could be better",
-                    imageVector = Icons.Filled.Info,
-                    badgeShape = supportBadgeShape,
-                    badgeContainerColor = supportContainer,
-                    badgeContentColor = supportContent,
-                    interactionModifier =
-                        Modifier.clickable(role = Role.Button) {
-                            openExternalLink(context, REPOSITORY_ISSUES_URL)
+            SettingsGroup(title = "Support") {
+                Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+                    SegmentedListItem(
+                        onClick = { openExternalLink(context, REPOSITORY_ISSUES_URL) },
+                        shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                        colors = itemColors,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = supportBadgeShape,
+                                containerColor = supportContainer,
+                                contentColor = supportContent,
+                                imageVector = Icons.Filled.Info,
+                            )
                         },
-                )
-                SettingsItem(
-                    title = "Star Kitab on GitHub",
-                    supporting = "Support the project by starring the repository",
-                    iconRes = R.drawable.ic_star,
-                    badgeShape = supportBadgeShape,
-                    badgeContainerColor = supportContainer,
-                    badgeContentColor = supportContent,
-                    interactionModifier =
-                        Modifier.clickable(role = Role.Button) {
-                            openExternalLink(context, REPOSITORY_URL)
+                        supportingContent = { Text("Share feedback or tell us what could be better") },
+                    ) {
+                        Text("Report a bug or request a feature")
+                    }
+                    SegmentedListItem(
+                        onClick = { openExternalLink(context, REPOSITORY_URL) },
+                        shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                        colors = itemColors,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = supportBadgeShape,
+                                containerColor = supportContainer,
+                                contentColor = supportContent,
+                                iconRes = R.drawable.ic_star,
+                            )
                         },
-                )
+                        supportingContent = { Text("Support the project by starring the repository") },
+                    ) {
+                        Text("Star Kitab on GitHub")
+                    }
+                }
             }
         }
 
         item {
-            SettingsSection(title = "About") {
-                SettingsItem(
-                    title = "About Kitab",
-                    supporting = "PDF and EPUB reader · Version ${BuildConfig.VERSION_NAME}",
-                    iconRes = R.drawable.ic_kitab_logo,
-                    badgeShape = aboutBadgeShape,
-                    badgeContainerColor = aboutContainer,
-                    badgeContentColor = aboutContent,
-                    interactionModifier =
-                        Modifier.clickable(role = Role.Button) {
-                            onAboutClick()
+            SettingsGroup(title = "About") {
+                Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+                    SegmentedListItem(
+                        onClick = onAboutClick,
+                        shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                        colors = itemColors,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = aboutBadgeShape,
+                                containerColor = aboutContainer,
+                                contentColor = aboutContent,
+                                iconRes = R.drawable.ic_kitab_logo,
+                            )
                         },
-                )
-                SettingsItem(
-                    title = "Open-source licenses",
-                    supporting = "MuPDF, Readium",
-                    iconRes = R.drawable.ic_description,
-                    badgeShape = aboutBadgeShape,
-                    badgeContainerColor = aboutContainer,
-                    badgeContentColor = aboutContent,
-                    interactionModifier =
-                        Modifier.clickable(role = Role.Button) {
-                            onLicensesClick()
+                        supportingContent = { Text("PDF and EPUB reader · Version ${BuildConfig.VERSION_NAME}") },
+                    ) {
+                        Text("About Kitab")
+                    }
+                    SegmentedListItem(
+                        onClick = onLicensesClick,
+                        shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                        colors = itemColors,
+                        leadingContent = {
+                            SettingsBadge(
+                                shape = aboutBadgeShape,
+                                containerColor = aboutContainer,
+                                contentColor = aboutContent,
+                                iconRes = R.drawable.ic_description,
+                            )
                         },
-                )
+                        supportingContent = { Text("MuPDF, Readium") },
+                    ) {
+                        Text("Open-source licenses")
+                    }
+                }
             }
         }
     }
@@ -335,24 +416,61 @@ private fun ColorPickerDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun <T> EnumSelector(
-    title: String,
+    title: String?,
     options: List<T>,
     selected: T,
     label: (T) -> String,
+    modifier: Modifier = Modifier,
     onSelect: (T) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Column(modifier = modifier.fillMaxWidth().padding(top = if (title != null) 12.dp else 0.dp)) {
+        if (title != null) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) {
             options.forEachIndexed { index, option ->
-                SegmentedButton(
-                    selected = selected == option,
-                    onClick = { onSelect(option) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                    label = { Text(label(option), maxLines = 1) },
-                )
+                val buttonContent: @Composable RowScope.() -> Unit = {
+                    Text(
+                        text = label(option),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                val buttonModifier = Modifier.weight(1f)
+                val buttonPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                if (options.size == 1) {
+                    ToggleButton(
+                        checked = selected == option,
+                        onCheckedChange = { checked -> if (checked) onSelect(option) },
+                        contentPadding = buttonPadding,
+                        modifier = buttonModifier,
+                        content = buttonContent,
+                    )
+                } else {
+                    ToggleButton(
+                        checked = selected == option,
+                        onCheckedChange = { checked -> if (checked) onSelect(option) },
+                        shapes =
+                            when (index) {
+                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                            },
+                        contentPadding = buttonPadding,
+                        modifier = buttonModifier,
+                        content = buttonContent,
+                    )
+                }
             }
         }
     }
@@ -397,9 +515,9 @@ private fun AppHeader() {
 }
 
 @Composable
-private fun SettingsSection(
+private fun SettingsGroup(
     title: String,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
 ) {
     Column {
         Text(
@@ -408,152 +526,94 @@ private fun SettingsSection(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
         )
+        content()
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    SettingsGroup(title = title) {
         Card(
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            content()
-        }
+            content = content,
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SettingsItem(
-    title: String,
-    imageVector: ImageVector? = null,
+private fun SettingsBadge(
+    shape: Shape,
+    containerColor: Color,
+    contentColor: Color,
     @DrawableRes iconRes: Int? = null,
-    badgeShape: Shape = MaterialShapes.Cookie4Sided.toShape(),
-    badgeContainerColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    badgeContentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
-    supporting: String? = null,
-    enabled: Boolean = true,
-    interactionModifier: Modifier = Modifier,
-    trailing: @Composable (() -> Unit)? = null,
+    imageVector: ImageVector? = null,
 ) {
-    val disabledAlpha = 0.38f
-    val headlineColor =
-        if (enabled) {
-            MaterialTheme.colorScheme.onSurface
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = disabledAlpha)
-        }
-    val supportingColor =
-        if (enabled) {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = disabledAlpha)
-        }
-    ListItem(
-        supportingContent =
-            if (supporting != null) {
-                { Text(text = supporting, color = supportingColor) }
-            } else {
-                null
-            },
-        leadingContent =
-            if (imageVector != null || iconRes != null) {
-                {
-                    val container = if (enabled) badgeContainerColor else badgeContainerColor.copy(alpha = disabledAlpha)
-                    val content = if (enabled) badgeContentColor else badgeContentColor.copy(alpha = disabledAlpha)
-                    Surface(
-                        shape = badgeShape,
-                        color = container,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (imageVector != null) {
-                                Icon(
-                                    imageVector = imageVector,
-                                    contentDescription = null,
-                                    tint = content,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            } else if (iconRes != null) {
-                                Icon(
-                                    painter = painterResource(iconRes),
-                                    contentDescription = null,
-                                    tint = content,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                null
-            },
-        trailingContent = trailing,
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = interactionModifier,
+    Surface(
+        shape = shape,
+        color = containerColor,
+        modifier = Modifier.size(40.dp),
     ) {
-        Text(text = title, color = headlineColor)
+        Box(contentAlignment = Alignment.Center) {
+            if (imageVector != null) {
+                Icon(
+                    imageVector = imageVector,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else if (iconRes != null) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun SettingsSwitchItem(
+private fun SettingsSwitchRow(
     title: String,
     supporting: String,
-    imageVector: ImageVector? = null,
-    @DrawableRes iconRes: Int? = null,
+    @DrawableRes iconRes: Int,
     badgeShape: Shape,
     badgeContainerColor: Color,
     badgeContentColor: Color,
     checked: Boolean,
-    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    SettingsItem(
-        title = title,
-        supporting = supporting,
-        imageVector = imageVector,
-        iconRes = iconRes,
-        badgeShape = badgeShape,
-        badgeContainerColor = badgeContainerColor,
-        badgeContentColor = badgeContentColor,
-        enabled = enabled,
-        interactionModifier =
-            Modifier.toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Switch,
-                onValueChange = onCheckedChange,
-            ),
-        trailing = {
+    ListItem(
+        supportingContent = { Text(supporting) },
+        leadingContent = {
+            SettingsBadge(
+                shape = badgeShape,
+                containerColor = badgeContainerColor,
+                contentColor = badgeContentColor,
+                iconRes = iconRes,
+            )
+        },
+        trailingContent = {
             Switch(
                 checked = checked,
                 onCheckedChange = null,
-                enabled = enabled,
             )
         },
-    )
-}
-
-@Composable
-private fun ThemeSelector(
-    selected: ThemeMode,
-    onSelect: (ThemeMode) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val modes = ThemeMode.entries
-    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        modes.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = selected == mode,
-                onClick = { onSelect(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                label = { Text(text = mode.label) },
-                colors =
-                    SegmentedButtonDefaults.colors(
-                        activeContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        activeContentColor = MaterialTheme.colorScheme.onSurface,
-                        inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-            )
-        }
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier =
+            Modifier.toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            ),
+    ) {
+        Text(title)
     }
 }
 

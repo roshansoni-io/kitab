@@ -32,6 +32,7 @@ class FakeSettingsRepository(
     override fun setKeepScreenAwake(enabled: Boolean) = _settings.update { it.copy(keepScreenAwake = enabled) }
     override fun setSelectionColor(color: SelectionColor) = _settings.update { it.copy(selectionColor = color) }
     override fun setReaderPageTone(tone: ReaderPageTone) = _settings.update { it.copy(readerPageTone = tone) }
+    override fun setReaderTheme(themeMode: ThemeMode) = _settings.update { it.copy(readerTheme = themeMode) }
     override fun setReaderPaging(paging: ReaderPaging) = _settings.update { it.copy(readerPaging = paging) }
     override fun setReaderTextSize(size: ReaderTextSize) = _settings.update { it.copy(readerTextSize = size) }
     override fun setResumeBehavior(behavior: ResumeBehavior) = _settings.update { it.copy(resumeBehavior = behavior) }

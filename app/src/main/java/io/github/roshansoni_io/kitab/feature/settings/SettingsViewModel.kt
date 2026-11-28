@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPageTone
 import io.github.roshansoni_io.kitab.core.data.model.ReaderPaging
 import io.github.roshansoni_io.kitab.core.data.model.ReaderTextSize
@@ -20,17 +21,34 @@ import kotlinx.coroutines.flow.stateIn
 
 internal data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.System,
-    val dynamicColor: Boolean = false,
+    val dynamicColor: Boolean = true,
     val supportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
     val customSeedColor: Int = 0xFF6750A4.toInt(),
     val keepScreenAwake: Boolean = false,
     val selectionColor: SelectionColor = SelectionColor.Blue,
     val readerPageTone: ReaderPageTone = ReaderPageTone.Theme,
+    val readerTheme: ThemeMode = ThemeMode.System,
     val readerPaging: ReaderPaging = ReaderPaging.Horizontal,
     val readerTextSize: ReaderTextSize = ReaderTextSize.Medium,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Resume,
     val readerControlsInitiallyVisible: Boolean = true,
 )
+
+private fun AppSettings.toUiState(): SettingsUiState =
+    SettingsUiState(
+        themeMode = themeMode,
+        dynamicColor = dynamicColor,
+        supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+        customSeedColor = customSeedColor,
+        keepScreenAwake = keepScreenAwake,
+        selectionColor = selectionColor,
+        readerPageTone = readerPageTone,
+        readerTheme = readerTheme,
+        readerPaging = readerPaging,
+        readerTextSize = readerTextSize,
+        resumeBehavior = resumeBehavior,
+        readerControlsInitiallyVisible = readerControlsInitiallyVisible,
+    )
 
 internal sealed interface SettingsEvent {
     data class SetThemeMode(
@@ -57,6 +75,10 @@ internal sealed interface SettingsEvent {
         val value: ReaderPageTone,
     ) : SettingsEvent
 
+    data class SetReaderTheme(
+        val mode: ThemeMode,
+    ) : SettingsEvent
+
     data class SetPaging(
         val value: ReaderPaging,
     ) : SettingsEvent
@@ -77,41 +99,13 @@ internal sealed interface SettingsEvent {
 internal class SettingsViewModel(
     private val repository: SettingsRepository,
 ) : ViewModel() {
-    private val initial = repository.settings.value
-
     val uiState: StateFlow<SettingsUiState> =
         repository.settings
-            .map { settings ->
-                SettingsUiState(
-                    themeMode = settings.themeMode,
-                    dynamicColor = settings.dynamicColor,
-                    supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-                    customSeedColor = settings.customSeedColor,
-                    keepScreenAwake = settings.keepScreenAwake,
-                    selectionColor = settings.selectionColor,
-                    readerPageTone = settings.readerPageTone,
-                    readerPaging = settings.readerPaging,
-                    readerTextSize = settings.readerTextSize,
-                    resumeBehavior = settings.resumeBehavior,
-                    readerControlsInitiallyVisible = settings.readerControlsInitiallyVisible,
-                )
-            }.stateIn(
+            .map(AppSettings::toUiState)
+            .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue =
-                    SettingsUiState(
-                        themeMode = initial.themeMode,
-                        dynamicColor = initial.dynamicColor,
-                        supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-                        customSeedColor = initial.customSeedColor,
-                        keepScreenAwake = initial.keepScreenAwake,
-                        selectionColor = initial.selectionColor,
-                        readerPageTone = initial.readerPageTone,
-                        readerPaging = initial.readerPaging,
-                        readerTextSize = initial.readerTextSize,
-                        resumeBehavior = initial.resumeBehavior,
-                        readerControlsInitiallyVisible = initial.readerControlsInitiallyVisible,
-                    ),
+                initialValue = repository.settings.value.toUiState(),
             )
 
     fun onEvent(event: SettingsEvent) {
@@ -122,6 +116,7 @@ internal class SettingsViewModel(
             is SettingsEvent.SetKeepAwake -> repository.setKeepScreenAwake(event.value)
             is SettingsEvent.SetSelectionColor -> repository.setSelectionColor(event.value)
             is SettingsEvent.SetPageTone -> repository.setReaderPageTone(event.value)
+            is SettingsEvent.SetReaderTheme -> repository.setReaderTheme(event.mode)
             is SettingsEvent.SetPaging -> repository.setReaderPaging(event.value)
             is SettingsEvent.SetReaderTextSize -> repository.setReaderTextSize(event.value)
             is SettingsEvent.SetResumeBehavior -> repository.setResumeBehavior(event.value)

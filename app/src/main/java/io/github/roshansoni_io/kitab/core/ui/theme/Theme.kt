@@ -3,21 +3,14 @@ package io.github.roshansoni_io.kitab.core.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -28,8 +21,6 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.materialkolor.dynamicColorScheme
 import io.github.roshansoni_io.kitab.core.data.model.ThemeMode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 private val KitabTypography =
     Typography(
@@ -101,23 +92,18 @@ fun KitabTheme(
 ) {
     val darkTheme = isDarkTheme(themeMode)
     val context = LocalContext.current
-    val fallbackColorScheme: ColorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
-    var colorScheme by remember { mutableStateOf(fallbackColorScheme) }
-
-    LaunchedEffect(darkTheme, dynamicColor, customSeedColor, context) {
-        colorScheme =
+    val colorScheme =
+        remember(darkTheme, dynamicColor, customSeedColor, context) {
             if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             } else {
-                withContext(Dispatchers.Default) {
-                    dynamicColorScheme(
-                        seedColor = Color(customSeedColor),
-                        isDark = darkTheme,
-                        isAmoled = false,
-                    )
-                }
+                dynamicColorScheme(
+                    seedColor = Color(customSeedColor),
+                    isDark = darkTheme,
+                    isAmoled = false,
+                )
             }
-    }
+        }
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,

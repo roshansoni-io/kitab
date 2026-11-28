@@ -17,10 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
 import io.github.roshansoni_io.kitab.core.data.model.Book
+import io.github.roshansoni_io.kitab.core.ui.theme.KitabTheme
+import io.github.roshansoni_io.kitab.core.ui.theme.isDarkTheme
 import io.github.roshansoni_io.kitab.feature.reader.document.DocumentOpenException
 import io.github.roshansoni_io.kitab.feature.reader.epub.EpubReaderScreen
+import io.github.roshansoni_io.kitab.feature.reader.epub.findFragmentActivity
 
 @Composable
 fun ReaderScreen(
@@ -35,24 +39,59 @@ fun ReaderScreen(
 ) {
     BackHandler(onBack = onBack)
     ReaderKeepScreenOn(settings.keepScreenAwake)
-    if (book.isEpub) {
-        EpubReaderScreen(
-            book = book,
-            initialLocatorJson = resumeEpubLocatorJson,
-            settings = settings,
-            onProgress = onEpubProgress,
-            onBack = onBack,
-            onOpenExternalLink = onOpenExternalLink,
-        )
-    } else {
-        PdfReaderScreen(
-            book = book,
-            resumePage = resumePage,
-            settings = settings,
-            onProgress = onProgress,
-            onBack = onBack,
-            onOpenExternalLink = onOpenExternalLink,
-        )
+    ReaderSystemBarsEffect(
+        readerDarkTheme = isDarkTheme(settings.readerTheme),
+        appDarkTheme = isDarkTheme(settings.themeMode),
+    )
+    KitabTheme(
+        themeMode = settings.readerTheme,
+        dynamicColor = settings.dynamicColor,
+        customSeedColor = settings.customSeedColor,
+    ) {
+        if (book.isEpub) {
+            EpubReaderScreen(
+                book = book,
+                initialLocatorJson = resumeEpubLocatorJson,
+                settings = settings,
+                onProgress = onEpubProgress,
+                onBack = onBack,
+                onOpenExternalLink = onOpenExternalLink,
+            )
+        } else {
+            PdfReaderScreen(
+                book = book,
+                resumePage = resumePage,
+                settings = settings,
+                onProgress = onProgress,
+                onBack = onBack,
+                onOpenExternalLink = onOpenExternalLink,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ReaderSystemBarsEffect(
+    readerDarkTheme: Boolean,
+    appDarkTheme: Boolean,
+) {
+    val view = LocalView.current
+    DisposableEffect(view, readerDarkTheme, appDarkTheme) {
+        val window = view.context.findFragmentActivity()?.window
+        if (window != null) {
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !readerDarkTheme
+                isAppearanceLightNavigationBars = !readerDarkTheme
+            }
+        }
+        onDispose {
+            if (window != null) {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !appDarkTheme
+                    isAppearanceLightNavigationBars = !appDarkTheme
+                }
+            }
+        }
     }
 }
 
@@ -99,11 +138,32 @@ internal fun ReaderLoadingScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ReaderUnavailableScreen(onBack: () -> Unit) {
+    ReaderMessageScreen(
+        bookTitle = "Book unavailable",
+        message = "This book is no longer available.",
+        onBack = onBack,
+    )
+}
+
 @Composable
 internal fun ReaderErrorScreen(
     bookTitle: String,
     failure: Throwable,
+    onBack: () -> Unit,
+) {
+    ReaderMessageScreen(
+        bookTitle = bookTitle,
+        message = failureMessage(failure),
+        onBack = onBack,
+    )
+}
+
+@Composable
+private fun ReaderMessageScreen(
+    bookTitle: String,
+    message: String,
     onBack: () -> Unit,
 ) {
     ReaderScaffold(
@@ -120,7 +180,7 @@ internal fun ReaderErrorScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = failureMessage(failure),
+                text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(horizontal = ScreenPadding.medium),
             )

@@ -24,6 +24,8 @@ interface SettingsRepository {
 
     fun setReaderPageTone(tone: ReaderPageTone)
 
+    fun setReaderTheme(themeMode: ThemeMode)
+
     fun setReaderPaging(paging: ReaderPaging)
 
     fun setReaderTextSize(size: ReaderTextSize)

@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.commitNow
 import androidx.lifecycle.lifecycleScope
 import io.github.roshansoni_io.kitab.R
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.util.DirectionalNavigationAdapter
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.AbsoluteUrl
 import kotlin.math.max
 
@@ -31,11 +33,27 @@ import kotlin.math.max
 internal class EpubReaderFragment : Fragment() {
     private var session: EpubSession? = null
     private var navigator: EpubNavigatorFragment? = null
+    private var directionalNavigationAdapter: DirectionalNavigationAdapter? = null
 
     private val externalLinkListener =
         object : EpubNavigatorFragment.Listener {
             override fun onExternalLinkActivated(url: AbsoluteUrl) {
                 session?.onExternalLink?.invoke(url.toString())
+            }
+        }
+
+    private val paginationListener =
+        object : EpubNavigatorFragment.PaginationListener {
+            override fun onPageChanged(
+                pageIndex: Int,
+                totalPages: Int,
+                locator: Locator,
+            ) {
+                session?.onPageChanged(pageIndex, totalPages, locator)
+            }
+
+            override fun onPageLoaded() {
+                injectPaginationCss()
             }
         }
 
@@ -70,6 +88,11 @@ internal class EpubReaderFragment : Fragment() {
                 initialLocator = if (savedInstanceState == null) session.initialLocator else null,
                 initialPreferences = session.preferences,
                 listener = externalLinkListener,
+                paginationListener = paginationListener,
+                configuration =
+                    EpubNavigatorFragment.Configuration(
+                        shouldApplyInsetsPadding = false,
+                    ),
             )
         super.onCreate(savedInstanceState)
 
@@ -106,27 +129,31 @@ internal class EpubReaderFragment : Fragment() {
         }
         this.navigator = navigator
         session.navigator = navigator
+        val directionalAdapter = DirectionalNavigationAdapter(navigator)
+        directionalNavigationAdapter = directionalAdapter
         navigator.addInputListener(centerTapListener)
-        navigator.addInputListener(DirectionalNavigationAdapter(navigator))
+        navigator.addInputListener(directionalAdapter)
         navigator.submitPreferences(session.preferences)
 
         viewLifecycleOwner.lifecycleScope.launch {
             navigator.currentLocator.collectLatest { locator ->
-                session.locator.value = locator
+                session.onLocatorChanged(locator)
                 delay(PROGRESS_SAVE_DELAY_MS)
-                session.onProgress?.invoke(locator)
+                session.publishProgress(session.locator.value ?: locator)
             }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        val locator = navigator?.currentLocator?.value ?: return
-        session?.onProgress?.invoke(locator)
+        val locator = session?.locator?.value ?: navigator?.currentLocator?.value ?: return
+        session?.publishProgress(locator)
     }
 
     override fun onDestroyView() {
         navigator?.removeInputListener(centerTapListener)
+        directionalNavigationAdapter?.let { navigator?.removeInputListener(it) }
+        directionalNavigationAdapter = null
         navigator = null
         session?.navigator = null
         super.onDestroyView()
@@ -142,6 +169,20 @@ internal class EpubReaderFragment : Fragment() {
         super.onDestroy()
     }
 
+    private fun injectPaginationCss() {
+        if (view == null || session?.isFixedLayout == true) return
+        val nav = navigator ?: return
+        if (nav.view == null) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                nav.evaluateJavascript(INJECT_PAGINATION_CSS_JS)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     companion object {
         private const val ARG_PATH = "path"
         private const val PROGRESS_SAVE_DELAY_MS = 750L
@@ -154,3 +195,26 @@ internal class EpubReaderFragment : Fragment() {
             }
     }
 }
+
+internal const val INJECT_PAGINATION_CSS_JS =
+    """
+    (function() {
+      var head = document.head || document.documentElement;
+      if (!head || document.getElementById('kitab-pagination-fix')) return;
+      var style = document.createElement('style');
+      style.id = 'kitab-pagination-fix';
+      style.textContent =
+        'table, pre, blockquote, figure, div, section, article {' +
+        '  break-inside: auto !important;' +
+        '  -webkit-column-break-inside: auto !important;' +
+        '  page-break-inside: auto !important;' +
+        '}' +
+        'img, svg, video, canvas {' +
+        '  max-width: 100% !important;' +
+        '  max-height: 92vh !important;' +
+        '  height: auto !important;' +
+        '  object-fit: contain !important;' +
+        '}';
+      head.appendChild(style);
+    })();
+    """

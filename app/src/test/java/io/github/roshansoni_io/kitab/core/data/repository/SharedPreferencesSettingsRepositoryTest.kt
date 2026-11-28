@@ -28,6 +28,7 @@ class SharedPreferencesSettingsRepositoryTest {
         val settings = SharedPreferencesSettingsRepository(application).settings.value
 
         assertEquals(ThemeMode.System, settings.themeMode)
+        assertEquals(ThemeMode.System, settings.readerTheme)
         assertTrue(settings.dynamicColor)
         assertEquals(0xFF6750A4.toInt(), settings.customSeedColor)
         assertEquals(ReaderTextSize.Medium, settings.readerTextSize)
@@ -43,6 +44,7 @@ class SharedPreferencesSettingsRepositoryTest {
         repository.setKeepScreenAwake(true)
         repository.setSelectionColor(SelectionColor.Rose)
         repository.setReaderPageTone(ReaderPageTone.Warm)
+        repository.setReaderTheme(ThemeMode.Light)
         repository.setReaderPaging(ReaderPaging.Vertical)
         repository.setReaderTextSize(ReaderTextSize.Large)
         repository.setResumeBehavior(ResumeBehavior.Beginning)
@@ -59,6 +61,7 @@ class SharedPreferencesSettingsRepositoryTest {
         assertTrue(reloaded.keepScreenAwake)
         assertEquals(SelectionColor.Rose, reloaded.selectionColor)
         assertEquals(ReaderPageTone.Warm, reloaded.readerPageTone)
+        assertEquals(ThemeMode.Light, reloaded.readerTheme)
         assertEquals(ReaderPaging.Vertical, reloaded.readerPaging)
         assertEquals(ReaderTextSize.Large, reloaded.readerTextSize)
         assertEquals(ResumeBehavior.Beginning, reloaded.resumeBehavior)

@@ -7,7 +7,7 @@ import android.view.Window
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,10 +62,11 @@ private fun SystemBarsEffect(
     window: Window,
     darkTheme: Boolean,
 ) {
-    SideEffect {
+    DisposableEffect(window, darkTheme) {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = !darkTheme
             isAppearanceLightNavigationBars = !darkTheme
         }
+        onDispose {}
     }
 }

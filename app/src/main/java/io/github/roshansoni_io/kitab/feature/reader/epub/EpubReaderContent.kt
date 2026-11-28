@@ -1,35 +1,23 @@
 package io.github.roshansoni_io.kitab.feature.reader.epub
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSliderState
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
@@ -37,7 +25,11 @@ import androidx.fragment.app.commit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.roshansoni_io.kitab.R
 import io.github.roshansoni_io.kitab.core.data.model.AppSettings
+import io.github.roshansoni_io.kitab.core.ui.theme.isDarkTheme
+import io.github.roshansoni_io.kitab.feature.reader.ReaderBottomBar
 import io.github.roshansoni_io.kitab.feature.reader.ReaderScaffold
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubPreferences
 import java.util.Locale
@@ -57,30 +49,28 @@ internal fun EpubReaderContent(
     val activity = remember(context) { context.findFragmentActivity() }
     val scope = rememberCoroutineScope()
     val locator by session.locator.collectAsStateWithLifecycle()
+    val smoothProgression by session.progression.collectAsStateWithLifecycle()
+    val totalPositions = session.totalPositions
     var chromeVisible by remember { mutableStateOf(settings.readerControlsInitiallyVisible) }
     var isSeeking by remember { mutableStateOf(false) }
     var seekValue by remember { mutableFloatStateOf(0f) }
-    val progression =
-        locator
-            ?.locations
-            ?.totalProgression
-            ?.toFloat()
-            ?.coerceIn(0f, 1f)
-            ?: 0f
+    var seekGeneration by remember { mutableIntStateOf(0) }
+    var seekJob by remember { mutableStateOf<Job?>(null) }
+    val darkTheme = isDarkTheme(settings.readerTheme)
+    val pageBackground = settings.readerPageTone.epubBackgroundColor(darkTheme)
+    val progression = smoothProgression.toFloat().coerceIn(0f, 1f)
 
     SideEffect {
         session.onCenterTap = { chromeVisible = !chromeVisible }
         session.onExternalLink = onOpenExternalLink
-        session.onProgress = { current ->
-            current.locations.totalProgression?.let { progression ->
-                onProgress(current.toJSON().toString(), progression)
-            }
-        }
+        session.onProgress = onProgress
     }
 
     LaunchedEffect(preferences) {
-        session.preferences = preferences
-        session.navigator?.submitPreferences(preferences)
+        if (session.preferences != preferences) {
+            session.preferences = preferences
+            session.navigator?.submitPreferences(preferences)
+        }
     }
 
     // The navigator fragment is hosted by the Activity's FragmentManager, so it has to be
@@ -98,111 +88,123 @@ internal fun EpubReaderContent(
         }
     }
 
+    val displayedProgress = (if (isSeeking) seekValue else progression).coerceIn(0f, 1f)
+    val pageLabel =
+        epubPageLabel(
+            progress = displayedProgress,
+            isSeeking = isSeeking,
+            currentPosition = locator?.locations?.position,
+            totalPositions = totalPositions,
+        )
+
     ReaderScaffold(
         bookTitle = bookTitle,
         onBack = onBack,
         chromeVisible = chromeVisible,
         bottomBar = {
-            EpubReaderBottomBar(
-                progress = if (isSeeking) seekValue else progression,
+            ReaderBottomBar(
+                progress = displayedProgress,
+                label = pageLabel,
                 onSeek = { value ->
+                    seekGeneration++
+                    seekJob?.cancel()
                     isSeeking = true
                     seekValue = value
                 },
                 onSeekFinished = {
-                    isSeeking = false
-                    scope.launch { session.seekTo(seekValue.toDouble()) }
+                    val targetValue = seekValue.toDouble()
+                    val generation = ++seekGeneration
+                    seekJob?.cancel()
+                    seekJob =
+                        scope.launch {
+                            if (session.seekTo(targetValue)) {
+                                // Keep seek value displayed briefly while WebView settles on the new page.
+                                delay(SEEK_SETTLE_DELAY_MS)
+                            }
+                            if (seekGeneration == generation) {
+                                isSeeking = false
+                            }
+                        }
                 },
-                onPrevious = { session.navigator?.goBackward() },
-                onNext = { session.navigator?.goForward() },
+                onPrevious = {
+                    seekGeneration++
+                    seekJob?.cancel()
+                    isSeeking = false
+                    session.navigator?.goBackward()
+                },
+                onNext = {
+                    seekGeneration++
+                    seekJob?.cancel()
+                    isSeeking = false
+                    session.navigator?.goForward()
+                },
+                isInteracting = isSeeking,
             )
         },
     ) {
-        EpubNavigatorHost(session = session, activity = activity)
+        EpubNavigatorHost(
+            session = session,
+            activity = activity,
+            backgroundColor = pageBackground,
+        )
     }
+}
+
+private fun epubPageLabel(
+    progress: Float,
+    isSeeking: Boolean,
+    currentPosition: Int?,
+    totalPositions: Int,
+): String {
+    if (totalPositions > 0) {
+        val displayedPosition =
+            if (!isSeeking && currentPosition != null) {
+                currentPosition
+            } else {
+                (progress * (totalPositions - 1)).roundToInt() + 1
+            }
+        return "${displayedPosition.coerceIn(1, totalPositions)} / $totalPositions"
+    }
+    return String.format(Locale.US, "%d%%", (progress * 100).roundToInt())
 }
 
 @Composable
 private fun EpubNavigatorHost(
     session: EpubSession,
     activity: FragmentActivity?,
+    backgroundColor: Color,
 ) {
     var requested by remember(session, activity) { mutableStateOf(false) }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-            FragmentContainerView(context).apply { id = R.id.epub_reader_host }
-        },
-        update = {
-            val activity = activity ?: return@AndroidView
-            val fragmentManager = activity.supportFragmentManager
-            if (fragmentManager.isStateSaved) return@AndroidView
-            if (!requested && fragmentManager.findFragmentById(R.id.epub_reader_host) == null) {
-                requested = true
-                fragmentManager.commit {
-                    add(
-                        R.id.epub_reader_host,
-                        EpubReaderFragment.newInstance(session.path),
-                        EPUB_FRAGMENT_TAG,
-                    )
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(backgroundColor)
+                .safeDrawingPadding(),
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                FragmentContainerView(context).apply { id = R.id.epub_reader_host }
+            },
+            update = {
+                val activity = activity ?: return@AndroidView
+                val fragmentManager = activity.supportFragmentManager
+                if (fragmentManager.isStateSaved) return@AndroidView
+                if (!requested && fragmentManager.findFragmentById(R.id.epub_reader_host) == null) {
+                    requested = true
+                    fragmentManager.commit {
+                        add(
+                            R.id.epub_reader_host,
+                            EpubReaderFragment.newInstance(session.path),
+                            EPUB_FRAGMENT_TAG,
+                        )
+                    }
                 }
-            }
-        },
-    )
-}
-
-@Composable
-private fun EpubReaderBottomBar(
-    progress: Float,
-    onSeek: (Float) -> Unit,
-    onSeekFinished: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-) {
-    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val sliderState = rememberSliderState(value = progress)
-    LaunchedEffect(progress) {
-        sliderState.value = progress
-    }
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IconButton(onClick = onPrevious) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = "Previous Page",
-                )
-            }
-
-            Slider(
-                state = sliderState,
-                onValueChange = onSeek,
-                onValueChangeFinished = onSeekFinished,
-                modifier = Modifier.weight(1f),
-            )
-
-            Text(
-                text = String.format(Locale.US, "%d%%", (progress * 100).roundToInt()),
-                style = MaterialTheme.typography.titleMedium,
-                color = contentColor,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
-
-            IconButton(onClick = onNext) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Next Page",
-                )
-            }
-        }
+            },
+        )
     }
 }
 
-internal const val EPUB_FRAGMENT_TAG = "epubReaderFragment"
+private const val EPUB_FRAGMENT_TAG = "epub_reader_fragment"
+private const val SEEK_SETTLE_DELAY_MS = 650L
